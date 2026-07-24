@@ -474,21 +474,25 @@
 
       <h4>Time Range</h4>
       <p>
-        This field is required on all Ecoscope workflows. It is used for timestamp display and UTC
-        conversion only — it does <strong>not</strong> filter which patrol events are fetched from
-        EarthRanger. Each survey's own time window (configured in Step 5) controls which data is
-        pulled from EarthRanger.
+        This field is required on all Ecoscope workflows. It now directly controls which patrol
+        events are fetched: patrol events on or after <strong>Since</strong> and up to
+        <strong>Until</strong> are retrieved from EarthRanger for every survey configured in
+        Step 5. It is also used for timestamp display and UTC conversion.
+      </p>
+      <p>
+        One shared time range covers every survey in the run — there is no longer a separate
+        time window per survey.
       </p>
       <div class="callout">
-        <strong>Tip:</strong> Set this to a window that broadly covers all surveys in the run,
-        or leave it wider than needed — it will not cause over-fetching.
+        <strong>Tip:</strong> If different surveys need different fetch windows, submit them as
+        separate workflow runs — a single run applies one Time Range to every survey it contains.
       </div>
       <table>
         <thead><tr><th>Field</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>Timezone</td><td>Local timezone for display, e.g. <code>Africa/Nairobi (UTC+03:00)</code></td></tr>
-          <tr><td>Since</td><td>Broad start boundary covering all surveys in this run</td></tr>
-          <tr><td>Until</td><td>Broad end boundary covering all surveys in this run</td></tr>
+          <tr><td>Timezone</td><td>Local timezone for display and UTC conversion, e.g. <code>Africa/Nairobi (UTC+03:00)</code></td></tr>
+          <tr><td>Since</td><td>Start of the data fetch window — applied to every survey in this run</td></tr>
+          <tr><td>Until</td><td>End of the data fetch window — applied to every survey in this run</td></tr>
         </tbody>
       </table>
     </div>
@@ -515,59 +519,41 @@
   <div class="config-step">
     <div class="config-step-header">
       <div class="num">5</div>
-      <h3>Configure EarthRanger Connection and Surveys</h3>
+      <h3>Configure EarthRanger Connection and Survey Details</h3>
     </div>
     <div class="config-step-body">
       <p>
-        Scroll down to <strong>Configure EarthRanger connection</strong> and click <strong>+ Add</strong>
-        to add an EarthRanger site entry.
+        Scroll down to <strong>Configure EarthRanger and Survey Details</strong>. Click
+        <strong>+ Add</strong> to add a survey entry — each entry is one independent survey,
+        fetched using the shared Time Range from Step 3.
       </p>
 
-      <h4>EarthRanger Connection</h4>
       <table>
         <thead><tr><th>Field</th><th>Description</th></tr></thead>
         <tbody>
           <tr>
             <td>Data Source</td>
-            <td>Select the EarthRanger connection from the dropdown (e.g. <code>Amboseli Trust for Elephants</code>)</td>
+            <td>Select the EarthRanger connection for this survey (e.g. <code>Amboseli Trust for Elephants</code>)</td>
           </tr>
           <tr>
             <td>Patrol Type ID</td>
             <td>The numeric or UUID identifier for the DSC patrol type in EarthRanger</td>
           </tr>
-        </tbody>
-      </table>
-
-      <h4>Surveys</h4>
-      <p>
-        Under the connection entry, click <strong>+ Add</strong> inside the <strong>Surveys</strong>
-        section to define each survey. Multiple surveys can be added under a single EarthRanger connection.
-      </p>
-      <table>
-        <thead><tr><th>Field</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>Survey Name</td>
-            <td>
-              A unique name for this survey — used as the output filename prefix
-              (e.g. <code>Amboseli_Elephant_Survey_Q1_2026</code>)
-            </td>
-          </tr>
-          <tr><td>Since</td><td>Start of the data fetch window — patrol events on or after this time are retrieved from EarthRanger</td></tr>
-          <tr><td>Until</td><td>End of the data fetch window — patrol events up to this time are retrieved from EarthRanger</td></tr>
-          <tr><td>Timezone</td><td>The timezone for this survey's time window</td></tr>
           <tr>
             <td>Transects Group ID</td>
-            <td>The EarthRanger spatial group ID that contains the transect line features for this survey</td>
+            <td>
+              The EarthRanger spatial group ID(s) that contain this survey's transect line
+              features. Click <strong>+ Add</strong> within this field to add more than one
+              group ID if the survey's transects span multiple spatial groups
+            </td>
           </tr>
         </tbody>
       </table>
 
       <div class="callout">
-        <strong>Multiple surveys:</strong> To run multiple surveys from the <strong>same EarthRanger site</strong>,
-        add additional entries in the <strong>Surveys</strong> list within one connection entry.
-        To run surveys from <strong>different EarthRanger sites</strong>, click the outer <strong>+ Add</strong>
-        button to add a second connection entry.
+        <strong>Multiple surveys:</strong> To configure another survey, click the outer
+        <strong>+ Add</strong> button again to add a new entry — whether it points at the
+        same or a different EarthRanger connection, each entry runs as an independent survey.
       </div>
     </div>
   </div>
@@ -580,7 +566,7 @@
   <p>Once all parameters are configured, click <strong>Submit</strong>. For each survey the workflow will:</p>
 
   <ol class="run-steps">
-    <li>Fetch patrol events matching the configured patrol type ID and survey time window from EarthRanger.</li>
+    <li>Fetch patrol events matching the configured patrol type ID and the workflow's Time Range from EarthRanger.</li>
     <li>Split the survey's patrol events into their detected activity periods — each period is processed as an independent branch, tagged with a <code>{survey}_{yyyy}_{mm}</code> label.</li>
     <li>Fetch transect lines from the configured EarthRanger spatial group, once per survey period.</li>
     <li>Retrieve individual wildlife observation events from the patrol event IDs.</li>
@@ -604,9 +590,9 @@
 
   <p>
     All outputs are written to <code>$ECOSCOPE_WORKFLOWS_RESULTS/</code>. Six files are produced for
-    <strong>each survey period</strong> — <code>{survey}_{period}</code> is replaced by the Survey Name
-    you entered in Step 5 followed by the detected activity period
-    (e.g. <code>Amboseli_Elephant_Survey_Q1_2026_2026_02</code>).
+    <strong>each survey period</strong> — <code>{survey}_{period}</code> is replaced by the name of
+    the EarthRanger site (subdomain) that survey's connection points to, followed by the detected
+    activity period (e.g. <code>olaremotorogi_2026_02</code>).
   </p>
 
   <div class="output-grid">
