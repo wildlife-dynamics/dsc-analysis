@@ -5,38 +5,29 @@
 
 ```yaml
 # fingerprint:
-artifacts_sha256_basic: 4a6649009260d8477eac0c48c25039c60f4022b68b16c28fdd1927ae007a274d
-artifacts_sha256_strict: 8ccf29ab2504b987db2724421a71ddb44a8685ef2cc34952a1a6ab2566722d59
+artifacts_sha256_basic: 03ed5f1cf7731e4cb0d15e2f5245f0a24b973f898450f97731ac7b270567a2df
+artifacts_sha256_strict: 88cda7450a6c561f62717c4a601a5494c8c84113c193c095c02a9b7d5732fca4
 installed_requirements:
 - channel: https://repo.prefix.dev/ecoscope-workflows/
-  name: ecoscope-workflows-core
-  version: {version: ==0.22.17}
-- channel: https://repo.prefix.dev/ecoscope-workflows/
-  name: ecoscope-workflows-ext-ecoscope
-  version: {version: ==0.22.17}
+  name: ecoscope-platform
+  version: {version: ==2.15.1}
+- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  name: ecoscope-workflows-ext-custom
+  version: {version: ==0.1.0rc14}
+- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  name: ecoscope-workflows-ext-ste
+  version: {version: ==0.0.0rc1}
+- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  name: ecoscope-workflows-ext-distance-sample-counts
+  version: {version: ==1.0.0}
 - channel: conda-forge
   name: pydeck
   version: {version: ==0.9.2}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-custom
-  version: {version: ==0.0.56}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-ste
-  version: {version: ==0.0.18}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-big-life
-  version: {version: ==0.0.8}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-mnc
-  version: {version: ==0.0.8}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-ate
-  version: {version: ==0.0.3}
-- channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-  name: ecoscope-workflows-ext-distance-sample-counts
-  version: {version: ==0.0.10}
-params_sha256: b90305959b4e822e08b47d502917467dae1559ce1d03dee15a3d87c3f2f2b1ed
-spec_sha256: 37d77ad1fa088827389c68ebc0e066509143d30f9622ead9e6eef0a7a9aa34c6
+- channel: conda-forge
+  name: opentelemetry-sdk
+  version: {version: ==1.44.0}
+params_sha256: 3b535c9b2fb5a0fcb5317845b57533c9da8e0449074f9aa27cd7b0d35e73d51c
+spec_sha256: c92b6d5807bb5f1ce4fec6ac86a2d81b69c53acd893a23343fdd3fd1d5fa5832
 
 ```
 

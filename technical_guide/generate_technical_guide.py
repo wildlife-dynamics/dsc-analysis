@@ -137,41 +137,49 @@ story += [
       "wildlife survey data from EarthRanger and produces structured, analysis-ready "
       "datasets for use in population density modelling. The workflow supports "
       "<b>multiple surveys</b> in a single run, each defined by its own EarthRanger "
-      "connection, patrol type, survey time window, and transect spatial group."),
+      "connection, patrol type, survey time window, and transect spatial group. "
+      "Each survey is further split automatically into its <b>detected activity "
+      "periods</b>, so a site visited in e.g. both February and June produces two "
+      "independent, period-tagged output sets rather than one combined one."),
     sp(4),
-    p("For each configured survey the workflow delivers:"),
+    p("For each survey period the workflow delivers:"),
     bullet("A <b>metadata CSV</b> — survey-level observations including transect IDs, "
            "observer counts, team members, and event types"),
+    bullet("A <b>field effort CSV</b> — per-team-member daily distance travelled, "
+           "duration, and man-hours, derived from EarthRanger subject GPS tracks"),
     bullet("An <b>analysis data CSV</b> — wildlife observation events enriched with "
            "off-transect distances, orthogonal distances, estimated animal positions, "
            "and satellite-derived environmental covariates (NDVI, terrain slope)"),
     bullet("An <b>events GeoPackage</b> — spatial point layer of wildlife observations "
            "with key distance sampling geometry fields"),
-    bullet("A <b>transects GeoPackage</b> — visited transect lines labelled with "
-           "mean NDVI and slope values from Google Earth Engine"),
-    bullet("An <b>original transects GeoPackage</b> — unprocessed transect lines "
-           "as fetched from EarthRanger, in EPSG:4326"),
+    bullet("A <b>transect areas GeoPackage</b> — visited transect corridors (buffered) "
+           "labelled with mean NDVI and slope values from Google Earth Engine"),
+    bullet("A <b>transect lines GeoPackage</b> — visited transect centrelines "
+           "(unbuffered), reprojected to EPSG:4326"),
     sp(6),
     h2("Output summary"),
     make_table(
         [
             ["Output type", "Format", "Description"],
-            ["{survey}_analysis_metadata", "CSV",
+            ["{survey}_{period}_analysis_metadata", "CSV",
              "Survey event metadata: transect IDs, team members, observer counts, event types"],
-            ["{survey}_analysis_data",     "CSV",
+            ["{survey}_{period}_field_effort", "CSV",
+             "Per-team-member daily distance, duration, and man-hours from GPS tracks"],
+            ["{survey}_{period}_analysis_data",     "CSV",
              "Wildlife observations with distance fields, animal position estimates, "
              "NDVI, and slope covariates"],
-            ["{survey}_events",            "GeoPackage",
+            ["{survey}_{period}_events",            "GeoPackage",
              "Spatial point layer of wildlife observation events"],
-            ["{survey}_transects",         "GeoPackage",
-             "Visited transects with NDVI and slope labels (EPSG:4326)"],
-            ["{survey}_orig_transects",    "GeoPackage",
-             "Original, unmodified transect lines in EPSG:4326"],
+            ["{survey}_{period}_transect_areas",    "GeoPackage",
+             "Visited transect corridors (buffered) with NDVI and slope labels (EPSG:4326)"],
+            ["{survey}_{period}_transect_lines",    "GeoPackage",
+             "Visited transect centrelines (unbuffered) in EPSG:4326"],
         ],
-        [5*cm, 2.5*cm, W - 7.5*cm],
+        [5.5*cm, 2.5*cm, W - 8*cm],
     ),
-    note("{survey} is the survey name as defined in the connection configuration. "
-         "All five output file sets are produced independently for each survey."),
+    note("{survey} is the survey name as defined in the connection configuration and "
+         "{period} is the detected activity period label (e.g. 2026_02). All six output "
+         "file sets are produced independently for each survey period."),
     PageBreak(),
 ]
 
@@ -182,22 +190,25 @@ story += [
     h1("2. Dependencies"),
     hr(),
     h2("2.1  Python packages"),
-    p("The workflow declares eight versioned packages from the Ecoscope "
+    p("The workflow declares six versioned packages from the Ecoscope "
       "prefix.dev channels:"),
     make_table(
         [
             ["Package", "Version", "Channel"],
-            ["ecoscope-workflows-core",                "0.22.17.*", "ecoscope-workflows"],
-            ["ecoscope-workflows-ext-ecoscope",        "0.22.17.*", "ecoscope-workflows"],
-            ["ecoscope-workflows-ext-custom",          "0.0.50.*",  "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-ste",             "0.0.18.*",  "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-big-life",        "0.0.8.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-mnc",             "0.0.8.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-ate",             "0.0.3.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "0.0.2.*", "ecoscope-workflows-custom"],
+            ["ecoscope-platform",                      ">=2.15.0, <2.16.0", "ecoscope-workflows"],
+            ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*",  "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*",   "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.0.*", "ecoscope-workflows-custom"],
+            ["pydeck",                                  "0.9.2", "conda-forge"],
+            ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0", "conda-forge"],
         ],
-        [7*cm, 3*cm, W - 10*cm],
+        [7*cm, 3.5*cm, W - 10.5*cm],
     ),
+    note("Earlier revisions of this workflow additionally pinned separate "
+         "ecoscope-workflows-core / ecoscope-workflows-ext-ecoscope packages plus "
+         "site-specific extensions (ecoscope-workflows-ext-big-life, -ext-mnc, "
+         "-ext-ate). These have been consolidated into the single ecoscope-platform "
+         "package and removed where no longer required."),
     sp(6),
     h2("2.2  Google Earth Engine connection"),
     p("A Google Earth Engine (GEE) service account connection is required "
@@ -228,6 +239,11 @@ story += [
         ],
         [5*cm, W - 5*cm],
     ),
+    sp(6),
+    note("Field effort computation additionally requires that team members recorded "
+         "on patrol metadata events (Team Members / reported_by) match named "
+         "subjects/trackers in EarthRanger, so their GPS observations can be "
+         "retrieved and converted into daily distance and duration statistics."),
     PageBreak(),
 ]
 
@@ -294,24 +310,39 @@ story += [
       "The resulting patrol DataFrame is indexed on the <b>id</b> column via "
       "<b>set_dataframe_index</b> to enable subsequent join operations."),
     sp(6),
-    h2("4.3  Patrol transects"),
-    p("Transect lines are fetched in parallel with patrol events via "
-      "<b>fetch_transects</b>, using the spatial group ID specified in each "
-      "survey's connection config. The transects are GeoDataFrames in EPSG:4326 "
-      "as returned by EarthRanger."),
+    h2("4.3  Survey period splitting"),
+    p("Before any further processing, each survey's patrol events are passed through "
+      "<b>split_survey_by_period</b>, which detects the distinct activity periods "
+      "within the fetched patrol events (e.g. a site visited in February and again "
+      "in June) and splits them into independent, period-keyed branches. "
+      "<b>unpack_period_connection_survey</b> and <b>unpack_period_patrol_events</b> "
+      "then extract the connection/survey config and patrol events for each period, "
+      "and <b>get_survey_period_label</b> derives the period label (e.g. "
+      "<b>2026_02</b>) used in output filenames. From this point on, every "
+      "downstream step fans out over survey <i>periods</i> rather than surveys."),
     sp(6),
-    h2("4.4  Survey observation events"),
+    h2("4.4  Patrol transects"),
+    p("Transect lines are fetched per survey period via <b>fetch_transects</b>, "
+      "using the spatial group ID specified in the survey's connection config. "
+      "Because a survey's transect geometry does not change between periods, the "
+      "same transects are fetched once per period (duplicated across periods of the "
+      "same survey) so that each period's output is self-contained. The transects "
+      "are GeoDataFrames in EPSG:4326 as returned by EarthRanger."),
+    sp(6),
+    h2("4.5  Survey observation events"),
     p("Individual wildlife observation events are fetched from the patrol event IDs "
-      "returned by <b>fetch_patrol_events</b> using <b>fetch_events</b> "
-      "(chunk_size: 50). This two-step approach — fetch patrols first, then fetch "
+      "produced by period splitting using <b>fetch_events</b> "
+      "(chunk_size: 75). This two-step approach — fetch patrols first, then fetch "
       "the events within them — is required because the EarthRanger API does not "
       "support direct patrol-type filtering on the events endpoint."),
     sp(6),
-    h2("4.5  EarthRanger server name"),
-    p("The EarthRanger server name (site identifier) is retrieved per survey via "
-      "<b>get_server_name</b> and zipped with the survey event DataFrame. It is "
+    h2("4.6  EarthRanger server name"),
+    p("The EarthRanger server name (site identifier) is retrieved per survey period "
+      "via <b>get_server_name</b> and zipped with the survey event DataFrame. It is "
       "passed to <b>process_events_details</b> as the <b>client</b> argument so "
-      "that EarthRanger field IDs can be resolved to human-readable display names."),
+      "that EarthRanger field IDs can be resolved to human-readable display names. "
+      "The domain name is retrieved separately via a second <b>get_server_name</b> "
+      "call for use in filename/traceability construction."),
     PageBreak(),
 ]
 
@@ -353,7 +384,7 @@ story += [
         [1.5*cm, 4.5*cm, W - 6*cm],
     ),
     p("The resulting DataFrame is persisted as "
-      "<b>{survey_name}_analysis_metadata.csv</b>."),
+      "<b>{survey_name}_{period}_analysis_metadata.csv</b>."),
     sp(6),
     h2("5.2  Wildlife observation event branch"),
     p("Wildlife observation events (<b>distancecountwildlife_rep</b>) pass through "
@@ -376,14 +407,18 @@ story += [
             ["5", "map_columns (patrol rename)",
              "Rename flattened distance sampling fields to standardised names "
              "(see table below)"],
-            ["6", "bfill_within_patrols / ffill_within_patrols",
+            ["6", "format_text_column (transect_id, lower)",
+             "Lowercase transect_id so it matches the lowercased transect names "
+             "used downstream for name-based transect matching"],
+            ["7", "bfill_within_patrols / ffill_within_patrols",
              "Backward- then forward-fill transect_id and num_observers "
              "within each patrol (group_col: patrol_serial_number) to propagate "
              "metadata event values to wildlife observation rows"],
-            ["7", "filter_row_values (distancecountwildlife_rep)",
+            ["8", "filter_row_values (distancecountwildlife_rep)",
              "Retain only wildlife observation events after fill propagation"],
-            ["8", "add_constant_column (survey_id)",
-             "Stamp each row with the survey name as a survey_id identifier"],
+            ["9", "add_constant_column (survey_id)",
+             "Stamp each row with the survey+period base name (e.g. olaremotorogi_2026_02) "
+             "as a survey_id identifier"],
         ],
         [1.5*cm, 4.5*cm, W - 6*cm],
     ),
@@ -412,6 +447,47 @@ story += [
          "alternative title-case forms to handle variation across EarthRanger "
          "server configurations. raise_if_not_found is set to false so that "
          "missing columns are silently ignored."),
+    sp(6),
+    h2("5.4  Field effort computation"),
+    p("In parallel with the metadata and wildlife observation branches, "
+      "<b>compute_field_effort</b> derives a daily field-effort summary per team "
+      "member from the metadata event DataFrame (post drop_null_columns) and the "
+      "survey's EarthRanger connection:"),
+    make_table(
+        [
+            ["Step", "Description"],
+            ["1. Roster reconstruction", "Team Members (or reported_by as a fallback) "
+             "is parsed per event and grouped by recorder and survey_date to build a "
+             "daily team roster. If no member names are recorded, a placeholder "
+             "roster of size 3 (DEFAULT_TEAM_SIZE) is generated from the recorder "
+             "so that a team size estimate is still produced."],
+            ["2. Subject resolution", "Roster member names are matched against "
+             "EarthRanger subjects (get_subjects) to resolve subject IDs. If no "
+             "match is found for individual members, the recorder name is matched "
+             "against subjects as a fallback."],
+            ["3. Observation window", "Each survey_date is assigned a fixed daily "
+             "observation window (04:00–13:00 UTC) used to bound the GPS "
+             "observation fetch for that date."],
+            ["4. Track retrieval", "Subject GPS observations are fetched per "
+             "survey_date via get_subject_observations and converted to "
+             "relocations, then to trajectories (process_relocations / "
+             "relocations_to_trajectory), filtered to segments between 0.1 m and "
+             "100 km, 1 second and 6 hours, and 1–100 km/h."],
+            ["5. Distance/duration summary", "Trajectory segments are summarised "
+             "per subject/day (summarize_df) into total distance (km) and total "
+             "duration (h), then merged back onto the roster."],
+            ["6. Man-hours", "man_hours is computed as team_size × duration "
+             "for each subject/day row."],
+        ],
+        [4*cm, W - 4*cm],
+    ),
+    p("The resulting DataFrame — columns survey_date, id, name, team_size, "
+      "distance, duration, man_hours — is persisted as "
+      "<b>{survey_name}_{period}_field_effort.csv</b>."),
+    note("If no GPS observations are returned for a survey period, "
+         "compute_field_effort returns an empty DataFrame with the expected "
+         "columns rather than raising an error, so downstream persistence is "
+         "skipped gracefully for that period."),
     PageBreak(),
 ]
 
@@ -462,6 +538,14 @@ story += [
     p("After intersection filtering, visited transects are reprojected back to "
       "EPSG:4326 (<b>reproject_gdf</b>, target_crs: \"epsg:4326\") before "
       "satellite imagery labeling and GeoPackage export."),
+    sp(4),
+    note("The visited, buffered corridor geometry from this step is exported as "
+         "the transect_areas GeoPackage (Section 9). A second, independent branch "
+         "filters the pre-buffer simplified centrelines (from Section 6.2, step 2) "
+         "down to the same visited transect names (filter_transect_lines_by_visited) "
+         "and reprojects them to EPSG:4326 for export as the transect_lines "
+         "GeoPackage — the same visited subset, but with line rather than polygon "
+         "geometry."),
     PageBreak(),
 ]
 
@@ -477,7 +561,7 @@ story += [
       "<b>add_off_transect_distance</b> and stored in the column "
       "<b>off_transect_dist</b>. Events where the computed distance equals "
       "<b>−1</b> (indicating that no matching transect was found) are removed "
-      "via <b>filter_numeric_df</b> (op: \"ne\", value: −1)."),
+      "via <b>filter_rows</b> (op: \"ne\", value: −1)."),
     sp(6),
     h2("7.2  Estimated animal position"),
     p("The true animal position is estimated from the observer position, the "
@@ -496,7 +580,7 @@ story += [
       "in distance sampling density estimation models."),
     sp(4),
     p("Events with ortho_dist == −1 are again removed via "
-      "<b>filter_numeric_df</b> before the data proceeds to imagery labeling."),
+      "<b>filter_rows</b> before the data proceeds to imagery labeling."),
     sp(6),
     h2("7.4  Distance calculation summary"),
     make_table(
@@ -562,25 +646,28 @@ story += [
     sp(6),
     h2("8.3  Imagery labeling workflow"),
     p("The transects are converted to a Google Earth Engine FeatureCollection "
-      "via <b>to_ee_feature_collection</b> before labeling. The survey start "
-      "date (<b>get_since_filter</b>) is both added as a column to the transect "
-      "DataFrame and passed to the NDVI image builder as the <b>since</b> "
-      "parameter to anchor the composite date."),
+      "via <b>to_ee_feature_collection</b> before labeling. The period's minimum "
+      "patrol event date (<b>get_survey_min_date</b>) is both added as a column to "
+      "the transect DataFrame and passed to the NDVI image builder as the "
+      "<b>since</b> parameter to anchor the composite date."),
     sp(6),
     h2("8.4  Final transect column selection"),
     p("After labeling, transects are trimmed to the columns required for "
       "merging and export:"),
     make_table(
         [
-            ["Column", "Included in GeoPackage", "Included in merge", "Description"],
+            ["Column", "In transect_areas.gpkg", "Included in merge", "Description"],
             ["name",             "Yes", "Yes", "Transect identifier (matches transect_id in patrol events)"],
-            ["img_date_hsl_ndvi","Yes", "Yes", "Survey start date used as NDVI image anchor"],
+            ["img_date_hsl_ndvi","Yes", "Yes", "Period min. patrol date used as NDVI image anchor"],
             ["NDVI_HSL",         "Yes", "Yes", "Mean HLS NDVI value along transect"],
             ["slope",            "Yes", "Yes", "Mean terrain slope along transect"],
-            ["geometry",         "Yes", "No",  "Transect line geometry (excluded from CSV merge)"],
+            ["geometry",         "Yes", "No",  "Transect corridor geometry (excluded from CSV merge)"],
         ],
-        [3.5*cm, 3*cm, 2.5*cm, W - 9*cm],
+        [3.5*cm, 3.2*cm, 2.5*cm, W - 9.2*cm],
     ),
+    note("The separately exported transect_lines.gpkg (Section 6.4) carries only "
+         "the transect name and unbuffered line geometry — it is not labelled with "
+         "NDVI_HSL, slope, or img_date_hsl_ndvi."),
     PageBreak(),
 ]
 
@@ -591,40 +678,45 @@ story += [
     h1("9. Output Files"),
     hr(),
     p("All outputs are written to <b>$ECOSCOPE_WORKFLOWS_RESULTS</b>. "
-      "Five file sets are produced for each configured survey. "
-      "{survey} is replaced with the survey name defined in the connection config."),
+      "Six file sets are produced for each survey period. "
+      "{survey} is the survey name defined in the connection config and {period} "
+      "is the detected activity period label (e.g. 2026_02)."),
     sp(6),
     make_table(
         [
             ["File", "Format", "Description"],
-            ["{survey}_analysis_metadata.csv", "CSV",
+            ["{survey}_{period}_analysis_metadata.csv", "CSV",
              "Survey metadata events: transect IDs, team members, observer counts, "
              "event types, lat/lon"],
-            ["{survey}_analysis_data.csv", "CSV",
+            ["{survey}_{period}_field_effort.csv", "CSV",
+             "Per-team-member daily field effort: survey_date, id, name, team_size, "
+             "distance (km), duration (h), man_hours"],
+            ["{survey}_{period}_analysis_data.csv", "CSV",
              "Wildlife observation events with all distance sampling fields: "
              "species, totalcount, num_juveniles, dist_to_centre, radialangle, "
              "off_transect_dist, ortho_dist, survey_id, orig_geometry (WKT), "
              "estimated geometry (WKT), NDVI_HSL, slope, img_date_hsl_ndvi, "
              "intersects_transect, transect_id, num_observers, time, "
              "serial_number, patrol_id, patrol_serial_number"],
-            ["{survey}_events.gpkg", "GeoPackage",
+            ["{survey}_{period}_events.gpkg", "GeoPackage",
              "Spatial point layer of wildlife observations. Columns: serial_number, "
              "transect_id, dist_to_centre, ortho_dist, intersects_transect, geometry"],
-            ["{survey}_transects.gpkg", "GeoPackage",
-             "Visited transect lines (EPSG:4326) with environmental covariates: "
-             "name, img_date_hsl_ndvi, NDVI_HSL, slope, geometry"],
-            ["{survey}_orig_transects.gpkg", "GeoPackage",
-             "Original unprocessed transect lines as fetched from EarthRanger "
-             "(EPSG:4326). Includes all fields returned by the EarthRanger spatial "
-             "group endpoint"],
+            ["{survey}_{period}_transect_areas.gpkg", "GeoPackage",
+             "Visited transect corridors — buffered polygons (EPSG:4326) with "
+             "environmental covariates: name, img_date_hsl_ndvi, NDVI_HSL, slope, geometry"],
+            ["{survey}_{period}_transect_lines.gpkg", "GeoPackage",
+             "Visited transect centrelines — unbuffered lines (EPSG:4326), the same "
+             "visited subset as transect_areas but without environmental covariates"],
         ],
-        [5*cm, 2.5*cm, W - 7.5*cm],
+        [5.5*cm, 2.5*cm, W - 8*cm],
     ),
     sp(6),
     note("The _events GeoPackage contains a subset of columns optimised for "
          "spatial QA and GIS workflows. The _analysis_data CSV contains the full "
          "column set including all covariates and is the primary input for "
-         "distance sampling density estimation models."),
+         "distance sampling density estimation models. If a survey period has no "
+         "visited transects or no field-effort GPS data, the corresponding file(s) "
+         "for that period are simply not produced rather than raising an error."),
     PageBreak(),
 ]
 
@@ -643,53 +735,76 @@ story += [
            "task was itself skipped"),
     p("This means that if a survey returns no patrol events or no transects, "
       "all downstream tasks for that survey branch are skipped gracefully "
-      "without raising an error."),
+      "without raising an error. Many <b>groupbykey</b> steps additionally set "
+      "<b>any_keyed_iterables_are_skips</b> (unpack_depth: 1) so that if either "
+      "input iterable for a given key was itself a skip, that key's pairing is "
+      "dropped instead of propagating a malformed pair downstream."),
+    sp(4),
+    note("The final publish-path aggregation step (Section 9 / dsc_publish handoff) "
+         "deliberately omits any_keyed_iterables_are_skips: with many independent "
+         "survey periods, it is normal for some individual period to have nothing "
+         "persisted (e.g. no visited transects that period) while others succeed. "
+         "groupbykey's own SkippedDependencyFallback already drops just the "
+         "skipped entries and keeps the rest, so using the stricter check there "
+         "would discard every other period's real output."),
     sp(6),
-    h2("10.2  Per-survey fan-out with mapvalues"),
-    p("Every data-bearing step is executed once per survey via the "
+    h2("10.2  Per-survey-period fan-out with mapvalues"),
+    p("Every data-bearing step is executed once per survey <i>period</i> via the "
       "<b>mapvalues</b> directive. The fan-out list originates from "
-      "<b>split_connection_configs</b> and flows through all subsequent "
+      "<b>split_connection_configs</b>, is then exploded per detected activity "
+      "period by <b>split_survey_by_period</b>, and flows through all subsequent "
       "steps. Key fan-out points:"),
     make_table(
         [
             ["Step", "mapvalues source"],
             ["fetch_patrol_events",       "split_connection_config.return"],
-            ["fetch_patrol_transects",    "split_connection_config.return"],
-            ["fetch_events_from_ids",     "zip_conn_patrol_events.return"],
+            ["period_split (activity period detection)", "zip_conn_patrol_events.return"],
+            ["fetch_patrol_transects",    "period_connection_survey.return"],
+            ["fetch_events_from_ids",     "period_split.return"],
             ["All event processing steps","Chained from fetch_events_from_ids"],
+            ["compute_field_effort",      "zip_connection_metadata.return"],
             ["Transect CRS / distance steps", "Chained from fetch_patrol_transects"],
             ["GEE labeling steps",        "Chained from reproject_transects"],
             ["All persist steps",         "Chained via zip_filename_* groupbykey"],
         ],
-        [5*cm, W - 5*cm],
+        [6*cm, W - 6*cm],
     ),
     sp(6),
-    h2("10.3  zip_groupbykey — multi-input coordination"),
-    p("<b>zip_groupbykey</b> is used throughout the workflow to combine two "
-      "per-survey lists into paired tuples before feeding them into a two-argument "
-      "mapvalues step. Key uses:"),
+    h2("10.3  groupbykey — multi-input coordination"),
+    p("<b>groupbykey</b> (the successor to the older zip_groupbykey task) is used "
+      "throughout the workflow to combine two or more per-period iterables into "
+      "paired tuples before feeding them into a multi-argument mapvalues step. "
+      "Key uses:"),
     bullet("<b>zip_conn_patrol_events</b> — pairs split_connection_config with "
-           "set_patrol_index to feed fetch_events_from_ids"),
+           "set_patrol_index to feed period_split"),
     bullet("<b>zip_conn_survey_df</b> — pairs the event DataFrame with the "
            "EarthRanger server name to feed process_events_details"),
+    bullet("<b>zip_connection_metadata</b> — pairs period_connection_survey with "
+           "the metadata summary table to feed compute_field_effort"),
     bullet("<b>zip_patrol_transects</b> — pairs patrol events (UTM) with transects "
            "(UTM) to feed add_off_transect_distance"),
-    bullet("<b>zip_aoi_since</b> — pairs the EE FeatureCollection with the since "
-           "date to feed build_hls_ndvi_image"),
-    bullet("<b>zip_filename_*</b> — pairs dynamically constructed filename prefixes "
-           "with DataFrames to feed persist_df_wrapper"),
+    bullet("<b>zip_aoi_min_date</b> — pairs the EE FeatureCollection with the "
+           "period's minimum patrol date to feed build_hls_ndvi_image"),
+    bullet("<b>zip_lines_visited</b> — pairs the pre-buffer simplified transect "
+           "lines with the visited-transects list to feed "
+           "filter_transect_lines_by_visited"),
+    bullet("<b>zip_filename_*</b> — pairs dynamically constructed filenames "
+           "with DataFrames to feed persist_df"),
     sp(6),
     h2("10.4  Dynamic filename construction"),
-    p("Output filenames are constructed at runtime from the survey name "
-      "using <b>combine_names</b> with a fixed suffix:"),
+    p("Output filenames are constructed at runtime with <b>join_with_underscore</b>. "
+      "The survey name and period label are first combined into a shared base name "
+      "(<b>combine_survey_period_name</b>, e.g. olaremotorogi_2026_02) that is then "
+      "joined with a fixed suffix per output:"),
     make_table(
         [
             ["Suffix", "Output file purpose"],
-            ["_analysis_metadata", "Metadata events CSV"],
-            ["_analysis_data",     "Wildlife observations CSV"],
-            ["_events",            "Events GeoPackage"],
-            ["_transects",         "Visited transects GeoPackage"],
-            ["_orig_transects",    "Original transects GeoPackage"],
+            ["analysis_metadata", "Metadata events CSV"],
+            ["field_effort",      "Field effort summary CSV"],
+            ["analysis_data",     "Wildlife observations CSV"],
+            ["events",            "Events GeoPackage"],
+            ["transect_areas",    "Visited transect corridors (buffered) GeoPackage"],
+            ["transect_lines",    "Visited transect centrelines (unbuffered) GeoPackage"],
         ],
         [4*cm, W - 4*cm],
     ),
@@ -703,7 +818,18 @@ story += [
       "uses backward fill (<b>bfill_within_patrols</b>) followed by forward "
       "fill (<b>ffill_within_patrols</b>) to propagate the transect_id and "
       "num_observers values to every row within the patrol before "
-      "filtering to wildlife observation events only."),
+      "filtering to wildlife observation events only. transect_id is lowercased "
+      "immediately beforehand so it matches the lowercased transect names used "
+      "for name-based transect matching."),
+    sp(6),
+    h2("10.6  Publish handoff (prepared, not yet wired in)"),
+    p("The workflow builds a text widget (<b>create_text_widget_single_view</b>, "
+      "title: \"Files ready to publish\") listing every persisted transects and "
+      "patrol-events GeoPackage path across all surveys and periods, intended for "
+      "a reviewer to copy into a companion <b>dsc_publish</b> workflow. As of this "
+      "revision the widget is built but not yet attached to the dashboard "
+      "(<b>overall_dashboard.widgets</b> is empty, with the widget reference "
+      "commented out) — it is prepared for future wiring."),
     PageBreak(),
 ]
 
@@ -716,14 +842,12 @@ story += [
     make_table(
         [
             ["Package", "Version pinned"],
-            ["ecoscope-workflows-core",                "0.22.17.*"],
-            ["ecoscope-workflows-ext-ecoscope",        "0.22.17.*"],
-            ["ecoscope-workflows-ext-custom",          "0.0.50.*"],
-            ["ecoscope-workflows-ext-ste",             "0.0.18.*"],
-            ["ecoscope-workflows-ext-big-life",        "0.0.8.*"],
-            ["ecoscope-workflows-ext-mnc",             "0.0.8.*"],
-            ["ecoscope-workflows-ext-ate",             "0.0.3.*"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "0.0.2.*"],
+            ["ecoscope-platform",                      ">=2.15.0, <2.16.0"],
+            ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*"],
+            ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.0.*"],
+            ["pydeck",                                  "0.9.2"],
+            ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0"],
         ],
         [8*cm, W - 8*cm],
     ),

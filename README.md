@@ -6,13 +6,14 @@ This guide walks you through configuring and running the Distance Sample Count (
 
 ## Overview
 
-The workflow supports **multiple surveys per run**. For each configured survey it produces:
+The workflow supports **multiple surveys per run**. Each survey is automatically split into its **detected activity periods** — if a survey site was visited in, say, both February and June, the workflow produces two independent, period-tagged output sets instead of one combined one. For each survey period it produces:
 
 - An **analysis metadata CSV** — survey event metadata including transect IDs, team members, observer counts, and event types
+- A **field effort CSV** — per-team-member daily distance travelled, duration, and man-hours, derived from EarthRanger GPS tracks
 - An **analysis data CSV** — wildlife observations enriched with off-transect distances, orthogonal distances, estimated animal positions, HLS NDVI, and terrain slope
 - An **events GeoPackage** — spatial point layer of wildlife observations with key distance sampling geometry columns
-- A **transects GeoPackage** — visited transect lines labelled with mean NDVI and slope from Google Earth Engine
-- An **original transects GeoPackage** — unprocessed transect lines as fetched from EarthRanger
+- A **transect areas GeoPackage** — visited transect corridors (buffered) labelled with mean NDVI and slope from Google Earth Engine
+- A **transect lines GeoPackage** — visited transect centrelines (unbuffered), reprojected to EPSG:4326
 
 ---
 
@@ -26,6 +27,7 @@ Before running the workflow, ensure you have:
 - A **Google Earth Engine** service account configured in Ecoscope (used to retrieve NDVI and slope imagery)
 - The **EarthRanger spatial group ID** for each survey's transect lines
 - The **patrol type ID** (numeric or UUID) for the DSC patrol type in EarthRanger
+- Team members recorded on each patrol should correspond to named **subjects/trackers** in EarthRanger, so their GPS tracks can be used to compute field effort
 
 ---
 
@@ -39,19 +41,13 @@ In Ecoscope, go to **Workflow Templates** and click **Add Workflow Template**. P
 https://github.com/wildlife-dynamics/dsc_analysis.git
 ```
 
-Then click **Add Template**.
-
-![Add Workflow Template](data/screenshots/add_workflow.png)
+Then click **Add Template**. The card may show **Initializing…** briefly while the environment is set up.
 
 ---
 
 ### Step 2 — Select the Workflow
 
 After the template is added it appears in the **Workflow Templates** list as **dsc_analysis**. Click the card to open the workflow configuration form.
-
-> The card may show **Initializing…** briefly while the environment is set up.
-
-![Select Workflow Template](data/screenshots/select_workflow.png)
 
 ---
 
@@ -78,8 +74,6 @@ Set this to a window that broadly covers all surveys in the run, or leave it wid
 | Since | Broad start boundary covering all surveys in this run |
 | Until | Broad end boundary covering all surveys in this run |
 
-![Set Workflow Details and Time Range](data/screenshots/set_workflow_details_time_range.png)
-
 ---
 
 ### Step 4 — Configure Google Earth Engine Connection
@@ -87,8 +81,6 @@ Set this to a window that broadly covers all surveys in the run, or leave it wid
 Select your Google Earth Engine service account from the **Data Source** dropdown. This connection is used to build HLS NDVI composites and terrain slope images for transect labelling.
 
 > Only one GEE connection is needed — it is shared across all surveys in the run.
-
-![Configure Google Earth Engine Connection](data/screenshots/configure_gee.png)
 
 ---
 
@@ -115,11 +107,7 @@ Under the entry, click **+ Add** inside the **Surveys** section to define each s
 | Timezone | The timezone for this survey's time window |
 | Transects Group ID | The EarthRanger spatial group ID that contains the transect line features for this survey |
 
-![Configure EarthRanger Connection and Surveys](data/screenshots/configure_earthranger.png)
-
-![Survey Details Form](data/screenshots/set_survey_details.png)
-
-> To run multiple surveys from the **same EarthRanger site**, add additional entries in the **Surveys** list within one connection entry.  
+> To run multiple surveys from the **same EarthRanger site**, add additional entries in the **Surveys** list within one connection entry.
 > To run surveys from **different EarthRanger sites**, click the outer **+ Add** button to add a second connection entry.
 
 ---
@@ -129,29 +117,34 @@ Under the entry, click **+ Add** inside the **Surveys** section to define each s
 Once all parameters are configured, click **Submit**. For each survey the workflow will:
 
 1. Fetch patrol events matching the configured patrol type ID and survey time window from EarthRanger.
-2. Fetch transect lines from the configured EarthRanger spatial group.
-3. Retrieve individual wildlife observation events from the patrol event IDs.
-4. Process and normalise survey metadata events — extract transect ID, team members, and observer count.
-5. Propagate metadata fields to wildlife observation rows using backward/forward fill within each patrol.
-6. Reproject events and transects to a UTM coordinate system for metric distance calculations.
-7. Calculate the perpendicular distance from each observer position to the transect centreline (`off_transect_dist`).
-8. Estimate the true animal position from each observation's radial angle and distance to centre (`dist_to_centre`).
-9. Calculate the orthogonal distance from the estimated animal position to the transect centreline (`ortho_dist`).
-10. Filter events to those that intersect a 500 m transect buffer corridor; discard unvisited transects.
-11. Label visited transects with mean HLS NDVI (max 30 % cloud cover) and terrain slope from Google Earth Engine (30 m resolution).
-12. Merge transect covariates into the wildlife observation dataset.
-13. Export all outputs per survey to `$ECOSCOPE_WORKFLOWS_RESULTS`.
+2. Split the survey's patrol events into their detected activity periods — each period is processed as an independent branch, tagged with a `{survey}_{yyyy}_{mm}` label.
+3. Fetch transect lines from the configured EarthRanger spatial group, once per survey period.
+4. Retrieve individual wildlife observation events from the patrol event IDs.
+5. Process and normalise survey metadata events — extract transect ID, team members, and observer count.
+6. Propagate metadata fields to wildlife observation rows using backward/forward fill within each patrol.
+7. Compute field effort per team member — daily distance travelled, duration, and man-hours, from EarthRanger subject GPS tracks.
+8. Reproject events and transects to a UTM coordinate system for metric distance calculations.
+9. Calculate the perpendicular distance from each observer position to the transect centreline (`off_transect_dist`).
+10. Estimate the true animal position from each observation's radial angle and distance to centre (`dist_to_centre`).
+11. Calculate the orthogonal distance from the estimated animal position to the transect centreline (`ortho_dist`).
+12. Filter events to those that intersect a 500 m transect buffer corridor; discard unvisited transects.
+13. Label visited transects with mean HLS NDVI (max 30 % cloud cover) and terrain slope from Google Earth Engine (30 m resolution).
+14. Merge transect covariates into the wildlife observation dataset.
+15. Export all outputs per survey period to `$ECOSCOPE_WORKFLOWS_RESULTS`.
 
 ---
 
 ## Output Files
 
-All outputs are written to `$ECOSCOPE_WORKFLOWS_RESULTS/`. Five files are produced for **each survey** — `{survey}` is replaced by the Survey Name you entered in Step 5.
+All outputs are written to `$ECOSCOPE_WORKFLOWS_RESULTS/`. Six files are produced for **each survey period** — `{survey}_{period}` is replaced by the Survey Name you entered in Step 5 followed by the detected activity period (e.g. `Amboseli_Elephant_Survey_Q1_2026_2026_02`).
 
 | File | Description |
 |------|-------------|
-| `{survey}_analysis_metadata.csv` | Survey metadata events: transect IDs, team members, observer counts, event types, lat/lon |
-| `{survey}_analysis_data.csv` | Wildlife observations with all distance sampling fields: species, total count, juveniles, `dist_to_centre`, `radialangle`, `off_transect_dist`, `ortho_dist`, estimated geometry, `NDVI_HSL`, `slope`, `survey_id`, and more |
-| `{survey}_events.gpkg` | Spatial point layer of wildlife observations (columns: `serial_number`, `transect_id`, `dist_to_centre`, `ortho_dist`, `intersects_transect`, `geometry`) |
-| `{survey}_transects.gpkg` | Visited transect lines in EPSG:4326 with `NDVI_HSL`, `slope`, and `img_date_hsl_ndvi` columns |
-| `{survey}_orig_transects.gpkg` | Original unprocessed transect lines as fetched from EarthRanger (EPSG:4326) |
+| `{survey}_{period}_analysis_metadata.csv` | Survey metadata events: transect IDs, team members, observer counts, event types, lat/lon |
+| `{survey}_{period}_field_effort.csv` | Per-team-member daily field effort: `survey_date`, `id`, `name`, `team_size`, `distance` (km), `duration` (h), `man_hours` |
+| `{survey}_{period}_analysis_data.csv` | Wildlife observations with all distance sampling fields: species, total count, juveniles, `dist_to_centre`, `radialangle`, `off_transect_dist`, `ortho_dist`, estimated geometry, `NDVI_HSL`, `slope`, `survey_id`, and more |
+| `{survey}_{period}_events.gpkg` | Spatial point layer of wildlife observations (columns: `serial_number`, `transect_id`, `dist_to_centre`, `ortho_dist`, `intersects_transect`, `geometry`) |
+| `{survey}_{period}_transect_areas.gpkg` | Visited transect corridors (buffered polygons) in EPSG:4326 with `NDVI_HSL`, `slope`, and `img_date_hsl_ndvi` columns |
+| `{survey}_{period}_transect_lines.gpkg` | Visited transect centrelines (unbuffered) in EPSG:4326 |
+
+> If a survey has no visited transects or no matching patrol events for a given period, that period's outputs are skipped gracefully rather than raising an error — other periods and surveys in the same run are unaffected.

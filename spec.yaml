@@ -1,56 +1,30 @@
 id: dsc_analysis
 requirements:
-  - name: ecoscope-workflows-core
-    version: "0.22.17.*"
+  - name: ecoscope-platform
+    version: ">=2.15.0, <2.16.0"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-  - name: ecoscope-workflows-ext-ecoscope
-    version: "0.22.17.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows/
-  
+  - name: ecoscope-workflows-ext-custom
+    version: "0.1.0rc14.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-ste
+    version: "0.0.0rc1.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-distance-sample-counts
+    version: "1.0.0.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
 
-  - name: ecoscope-workflows-ext-custom
-    version: "0.0.56.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-ste
-    version: "0.0.18.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-big-life
-    version: "0.0.8.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-mnc
-    version: "0.0.8.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-ate
-    version: "0.0.3.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-  - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "0.0.10.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  - name: opentelemetry-sdk
+    version: ">=1.20.0,<2.0.0"
+    channel: conda-forge
 
 rjsf-overrides:
-  $defs:
-    TimeRange.properties.timezone.default:
-      label: "East Africa Time"
-      tzCode: "Africa/Nairobi"
-      name: "Africa/Nairobi (EAT)"
-      utc: "+03:00"
-    SurveyTimeRange.properties.timezone.default:
-      label: "East Africa Time"
-      tzCode: "Africa/Nairobi"
-      name: "Africa/Nairobi (EAT)"
-      utc: "+03:00"
-    ConnectionConfigEntry.title: "Connect to EarthRanger Instance"
-    ConnectionConfigEntry.properties.surveys.title: "Surveys"
-    SurveyConfig.title: "Configure Survey"
   properties:
     connection_config.properties.entries.title: "ER"
 
@@ -69,19 +43,19 @@ workflow:
     id: time_range
     task: set_time_range
 
-  - name: Set groupers
+  - name: Set Groupers 
     id: groupers
     task: set_groupers
     partial:
       groupers: []
 
-  - name: Configure Google Earth Engine connection
+  - name: Configure Google Earth Engine
     id: gee_client 
     task: set_gee_connection
 
   - name: Configure EarthRanger and Survey Details
     id: connection_config
-    task: create_connection_configs
+    task: create_connection_configs_from_ids
 
   - name: Split connection configuration
     id: split_connection_config 
@@ -93,6 +67,8 @@ workflow:
   - name: Fetch patrol events
     id: retrieve_patrol_events 
     task: fetch_patrol_events 
+    partial: 
+      time_range: ${{ workflow.time_range.return }}
     mapvalues: 
       argnames: connection_survey 
       argvalues: ${{ workflow.split_connection_config.return }}
@@ -106,41 +82,84 @@ workflow:
       argnames: df 
       argvalues: ${{ workflow.retrieve_patrol_events.return }}
 
-  # fetch transects for each survey connection config
-  - name: Fetch patrol transects from individual surveys 
-    id: fetch_patrol_transects 
-    task: fetch_transects 
-    mapvalues: 
-      argnames: connection_survey 
-      argvalues: ${{ workflow.split_connection_config.return }}
+  - name: Combine connection survey config with patrol events
+    id: zip_conn_patrol_events
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.split_connection_config.return }}
+        - ${{ workflow.set_patrol_index.return }}
 
-  # retrieve earthranger server name 
+  # split each survey's patrol events into its detected activity periods, so
+  # a survey visited in e.g. both February and June produces two independent
+  # (period-keyed) branches downstream instead of one combined survey
+  - name: Split survey by detected activity period
+    id: period_split
+    task: split_survey_by_period
+    partial:
+      connection_survey_and_events: ${{ workflow.zip_conn_patrol_events.return }}
+
+  - name: Extract connection survey per period
+    id: period_connection_survey
+    task: unpack_period_connection_survey
+    mapvalues:
+      argnames: pair
+      argvalues: ${{ workflow.period_split.return }}
+
+  - name: Extract patrol events per period
+    id: period_patrol_events
+    task: unpack_period_patrol_events
+    mapvalues:
+      argnames: pair
+      argvalues: ${{ workflow.period_split.return }}
+
+  - name: Get period label per survey period
+    id: period_label
+    task: get_survey_period_label
+    partial:
+      connection_survey_and_events: ${{ workflow.zip_conn_patrol_events.return }}
+
+  # fetch transects for each survey period (duplicated per period, since a
+  # survey's transects are the same geometry regardless of which activity
+  # period they're being persisted alongside)
+  - name: Fetch patrol transects from individual surveys
+    id: fetch_patrol_transects
+    task: fetch_transects
+    mapvalues:
+      argnames: connection_survey
+      argvalues: ${{ workflow.period_connection_survey.return }}
+
+  # retrieve earthranger server name
   - name: Fetch earthranger server name
     id: fetch_earthranger_client
     task: get_server_name
     mapvalues:
       argnames: connection_survey
-      argvalues: ${{ workflow.split_connection_config.return }}
+      argvalues: ${{ workflow.period_connection_survey.return }}
 
-  - name: Combine connection survey config with patrol events
-    id: zip_conn_patrol_events
-    task: zip_groupbykey 
-    partial: 
-      sequences: 
-        - ${{ workflow.split_connection_config.return }}
-        - ${{ workflow.set_patrol_index.return }}
-  
+  - name: Fetch earthranger domain name
+    id: fetch_er_domain_name
+    task: get_server_name
+    mapvalues:
+      argnames: connection_survey
+      argvalues: ${{ workflow.period_connection_survey.return }}
+
   # fetch events from patrol event ids for each survey connection config
-  - name: Fetch events from patrol event ids 
-    id: fetch_events_from_ids 
+  - name: Fetch events from patrol event ids
+    id: fetch_events_from_ids
     task: fetch_events
-    partial: 
-      chunk_size: 50
-    mapvalues: 
-      argnames: 
-        - connection_survey 
-        - patrol_events 
-      argvalues: ${{ workflow.zip_conn_patrol_events.return }}
+    partial:
+      chunk_size: 75
+    mapvalues:
+      argnames:
+        - connection_survey
+        - patrol_events
+      argvalues: ${{ workflow.period_split.return }}
 
   # survey event details values
   - name: Filter out distancecountpatrol_rep events only 
@@ -185,9 +204,14 @@ workflow:
 
   - name: Zip er connection to retained survey values 
     id: zip_conn_survey_df 
-    task: zip_groupbykey 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial: 
-      sequences:
+      iterables:
         - ${{ workflow.extract_reported_by.return }}
         - ${{ workflow.fetch_earthranger_client.return }}
 
@@ -260,7 +284,7 @@ workflow:
 
   - name: Parse list column from Team Members column
     id: parse_team_members
-    task: ecoscope_workflows_ext_custom.tasks.transformation.parse_list_column
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.parse_list_column
     partial:
       column: "Team Members"
     mapvalues:
@@ -284,92 +308,125 @@ workflow:
       argnames: df 
       argvalues: ${{ workflow.join_team_members.return }}
 
-  # persist survey event details 
+  # persist survey event details
   - name: Get survey name
     id: retrieve_survey_name
-    task: get_survey_name
+    task: get_server_subdomain
     mapvalues:
       argnames: connection_survey
-      argvalues: ${{ workflow.split_connection_config.return }}
+      argvalues: ${{ workflow.period_connection_survey.return }}
+
+  - name: Zip survey name with period label
+    id: zip_name_period
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.retrieve_survey_name.return }}
+        - ${{ workflow.period_label.return }}
+
+  # base filename/survey_id shared by every file persisted for this survey period,
+  # e.g. "olaremotorogi_2026_02"
+  - name: Combine survey name and period into base filename
+    id: combine_survey_period_name
+    task: join_with_underscore
+    mapvalues:
+      argnames:
+        - first
+        - second
+      argvalues: ${{ workflow.zip_name_period.return }}
 
   - name: Combine survey name with event details for filename
-    id: combine_survey_event_names 
-    task: combine_names 
-    partial: 
-      b: _analysis_metadata
-    mapvalues: 
-      argnames: a
-      argvalues: ${{ workflow.retrieve_survey_name.return }}
+    id: combine_survey_event_names
+    task: join_with_underscore
+    partial:
+      second: analysis_metadata
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
 
   - name: Zip filename with survey event details dataframe
     id: zip_filename_survey_df
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.combine_survey_event_names.return }}
         - ${{ workflow.drop_null_cols.return }}
 
   - name: Persist survey event details dataframe with dynamic filename
     id: persist_survey_event_metadata
-    task: persist_df_wrapper 
+    task: persist_df
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetypes: 
-        - csv 
-      filename: null
-      sanitize: false 
+      filetype: csv
     mapvalues:
       argnames:
-        - filename_prefix
+        - filename
         - df
       argvalues: ${{ workflow.zip_filename_survey_df.return }}
 
-  - name: Zip connection survey split information with metadata csv 
+  - name: Zip connection survey split information with metadata csv
     id: zip_connection_metadata
-    task: zip_groupbykey
-    partial: 
-      sequences: 
-        - ${{ workflow.split_connection_config.return }} #connectionconfig survey
-        - ${{ workflow.drop_null_cols.return }} # metadata summary table 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.period_connection_survey.return }} #connectionconfig survey
+        - ${{ workflow.drop_null_cols.return }} # metadata summary table
 
-  - name: Compute field effort 
+  - name: Compute field effort
     id: field_effort
     task: compute_field_effort
-    mapvalues: 
-      argnames: 
+    mapvalues:
+      argnames:
         - connection_survey
-        - df 
+        - df
       argvalues: ${{ workflow.zip_connection_metadata.return }}
 
   - name: Combine survey name with field effort
     id: combine_survey_field
-    task: combine_names 
-    partial: 
-      b: _field_effort
-    mapvalues: 
-      argnames: a
-      argvalues: ${{ workflow.retrieve_survey_name.return }}
-  
+    task: join_with_underscore
+    partial:
+      second: field_effort
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
+
   - name: Zip filename with field effort
     id: zip_filename_fe
-    task: zip_groupbykey
-    partial: 
-      sequences: 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
         - ${{ workflow.combine_survey_field.return }}
         - ${{ workflow.field_effort.return }}
 
   - name: Persist field effort with dynamic filename
     id: persist_field_effort
-    task: persist_df_wrapper 
+    task: persist_df
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetypes: 
-        - csv
-      filename: null
-      sanitize: false 
+      filetype: csv
     mapvalues:
       argnames:
-        - filename_prefix
+        - filename
         - df
       argvalues: ${{ workflow.zip_filename_fe.return }}
 
@@ -383,13 +440,18 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.fetch_events_from_ids.return }}
 
-  - name: Zip patrol events and filtered event dataframe 
-    id: zip_patrol_events_df 
-    task: zip_groupbykey
-    partial: 
-      sequences: 
-        - ${{ workflow.set_patrol_index.return }} #left 
-        - ${{ workflow.select_event_details.return }} #right 
+  - name: Zip patrol events and filtered event dataframe
+    id: zip_patrol_events_df
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.period_patrol_events.return }} #left
+        - ${{ workflow.select_event_details.return }} #right
 
   - name: Merge patrols with events event_details column
     id: merge_patrol_events
@@ -475,7 +537,7 @@ workflow:
 
   - name: Parse list column from Transect ID column
     id: parse_transect_id
-    task: ecoscope_workflows_ext_custom.tasks.transformation.parse_list_column
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.parse_list_column
     partial:
       column: "transect_id"
     mapvalues:
@@ -492,6 +554,19 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.parse_transect_id.return }}
 
+  # Transect names are lowercased earlier (normalize_transect_names_utm), so the
+  # event-side transect_id must be lowercased too, or add_off_transect_distance's
+  # name-based match fails for every event (e.g. "MNC_1" != "mnc_1").
+  - name: Lowercase transect_id to match normalized transect names
+    id: lowercase_transect_id
+    task: format_text_column
+    partial:
+      column: "transect_id"
+      method: lower
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.join_transect_id.return }}
+
   - name: Backward fill patrol event values within patrols
     id: bfill_patrol_events
     task: bfill_within_patrols
@@ -501,7 +576,7 @@ workflow:
       skip_if_missing: true
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.join_transect_id.return }}
+      argvalues: ${{ workflow.lowercase_transect_id.return }}
 
   - name: Forward fill patrol event values within patrols 
     id: ffill_patrol_events 
@@ -537,11 +612,16 @@ workflow:
 
   - name: Zip connection survey name with patrol events
     id: zip_conn_surv_name_df 
-    task: zip_groupbykey 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences: 
+      iterables:
         - ${{ workflow.extract_notes.return }} #filter_wildlife_rep
-        - ${{ workflow.retrieve_survey_name.return }}
+        - ${{ workflow.combine_survey_period_name.return }}
 
   - name: Add survey_id column to patrol events df
     id: add_survey_column 
@@ -564,9 +644,14 @@ workflow:
 
   - name: Zip transect df and utm crs value 
     id: zip_transect_df_crs 
-    task: zip_groupbykey 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey 
     partial: 
-      sequences: 
+      iterables: 
         - ${{ workflow.convert_transects_utm.return }}
         - ${{ workflow.fetch_patrol_transects.return }} 
         #${{ workflow.format_transect_names.return }}
@@ -601,9 +686,14 @@ workflow:
 
   - name: Zip patrol df and crs
     id: zip_patrol_df_crs 
-    task: zip_groupbykey 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey 
     partial: 
-      sequences: 
+      iterables: 
         - ${{ workflow.convert_transects_utm.return }}
         - ${{ workflow.add_survey_column.return }}
 
@@ -618,9 +708,14 @@ workflow:
     
   - name: Zip patrol events and transects
     id: zip_patrol_transects
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.patrol_events_utm.return }}
         - ${{ workflow.normalize_transect_underscores.return }}
 
@@ -639,12 +734,11 @@ workflow:
 
   - name: Exclude row values where off_transect_dist == -1
     id: exclude_neg_off_transects
-    task: filter_numeric_df
+    task: filter_rows
     partial:
       column_name: off_transect_dist
       value: -1
       reset_index: true
-      coerce_numeric: true
       op: "ne"
     mapvalues: 
       argnames: df 
@@ -670,9 +764,14 @@ workflow:
 
   - name: Zip estimated patrol events and transects
     id: zip_est_patrol_transects
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.estimate_animal_position.return }}
         - ${{ workflow.normalize_transect_underscores.return }}
 
@@ -691,12 +790,11 @@ workflow:
   
   - name: Exclude row values where ortho_dist == -1
     id: exclude_neg_ortho_dist
-    task: filter_numeric_df
+    task: filter_rows
     partial:
       column_name: ortho_dist
       value: -1
       reset_index: true
-      coerce_numeric: true
       op: "ne"
     mapvalues: 
       argnames: df 
@@ -733,9 +831,14 @@ workflow:
 
   - name: Zip patrol events with buffered transects
     id: zip_events_buff_trans
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.exclude_neg_ortho_dist.return }}
         - ${{ workflow.buffer_transect_segments.return }}
 
@@ -755,9 +858,14 @@ workflow:
 
   - name: Zip filtered events with buffered transects for visited-transect filter
     id: zip_filtered_events_trans
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.filter_intersecting_events.return }}
         - ${{ workflow.buffer_transect_segments.return }}
 
@@ -783,31 +891,36 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.visited_transects.return }}
 
-  - name: Get since filter from survey start date on connection config
-    id: get_since_conf_filter 
-    task: get_since_filter 
-    mapvalues: 
-      argnames: connection_survey 
-      argvalues: ${{ workflow.split_connection_config.return }}
+  - name: Get survey min date per period
+    id: survey_min_date
+    task: get_survey_min_date
+    mapvalues:
+      argnames: patrol_events
+      argvalues: ${{ workflow.period_patrol_events.return }}
 
-  - name: Zip transects df with since filter 
-    id: zip_df_since 
-    task: zip_groupbykey 
-    partial: 
-      sequences: 
-        - ${{ workflow.get_since_conf_filter.return }}
+  - name: Zip transects with survey min date
+    id: zip_transects_min_date
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
         - ${{ workflow.reproject_transects.return }}
+        - ${{ workflow.survey_min_date.return }}
 
   - name: Add since filter to transect df
-    id: add_since_transects 
-    task: add_constant_column 
-    partial: 
+    id: add_since_transects
+    task: add_constant_column
+    partial:
       column: "survey_date"
-    mapvalues: 
-      argnames: 
-        - value 
-        - df 
-      argvalues: ${{ workflow.zip_df_since.return }}
+    mapvalues:
+      argnames:
+        - df
+        - value
+      argvalues: ${{ workflow.zip_transects_min_date.return }}
 
   - name: Convert transects to feature collection
     id: convert_trans_ee
@@ -818,27 +931,32 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.add_since_transects.return }}
 
-  - name: Zip aoi and since filter for imagery retrieval
-    id: zip_aoi_since 
-    task: zip_groupbykey
-    partial: 
-      sequences: 
+  - name: Zip aoi with survey min date
+    id: zip_aoi_min_date
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
         - ${{ workflow.convert_trans_ee.return }}
-        - ${{ workflow.get_since_conf_filter.return }}
+        - ${{ workflow.survey_min_date.return }}
 
-  - name: Build hls ndvi image 
-    id: hls_ndvi_image 
-    task: build_hls_ndvi_image 
-    partial: 
+  - name: Build hls ndvi image
+    id: hls_ndvi_image
+    task: build_hls_ndvi_image
+    partial:
       client: ${{ workflow.gee_client.return }}
-      ndvi_window_days: null 
-      max_cloud_cover: 30 
+      ndvi_window_days: null
+      max_cloud_cover: 30
       ndvi_band_name: "NDVI_HSL"
-    mapvalues: 
-      argnames: 
-        - aoi 
-        - since 
-      argvalues: ${{ workflow.zip_aoi_since.return }}
+    mapvalues:
+      argnames:
+        - aoi
+        - since
+      argvalues: ${{ workflow.zip_aoi_min_date.return }}
 
   - name: Build slope image 
     id: create_slope_image 
@@ -860,24 +978,29 @@ workflow:
       argnames: gdf 
       argvalues:  ${{ workflow.add_since_transects.return }}
   
-  - name: Zip df with since filter and ndvi
-    id: zip_df_ndvi 
-    task: zip_groupbykey 
-    partial: 
-      sequences: 
-        - ${{ workflow.get_since_conf_filter.return }}
+  - name: Zip ndvi df with survey min date
+    id: zip_ndvi_min_date
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
         - ${{ workflow.label_ndvi_hsl.return }}
+        - ${{ workflow.survey_min_date.return }}
 
-  - name: Add img_date_hsl_ndvi to transects column 
+  - name: Add img_date_hsl_ndvi to transects column
     id: add_img_date_hsl_ndvi
     task: add_constant_column
-    partial: 
+    partial:
       column: "img_date_hsl_ndvi"
-    mapvalues: 
-      argnames: 
-        - value 
-        - df 
-      argvalues: ${{ workflow.zip_df_ndvi.return }}
+    mapvalues:
+      argnames:
+        - df
+        - value
+      argvalues: ${{ workflow.zip_ndvi_min_date.return }}
 
   - name: Add slope column to transects column 
     id: label_slope 
@@ -925,9 +1048,14 @@ workflow:
 
   - name: Zip patrols df and transects df
     id: zip_patrol_transects_df
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.filter_intersecting_events.return }}
         - ${{ workflow.exclude_geom.return }}
 
@@ -948,21 +1076,6 @@ workflow:
         - right 
       argvalues: ${{ workflow.zip_patrol_transects_df.return }}
       
-  #   # this needs to be removed later on
-  # - name: Persist transect patrols
-  #   id: persist_transect_pats
-  #   task: persist_df_wrapper 
-  #   partial:
-  #     root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     filetypes: 
-  #       - csv 
-  #     filename: null
-  #     sanitize: false 
-  #     filename_prefix: transect_patrols
-  #   mapvalues:
-  #     argnames: df 
-  #     argvalues: ${{ workflow.merge_filtered_patrols.return }}
-
   - name: Select patrol event columns for export 
     id: select_patrol_event_cols 
     task: select_columns 
@@ -984,33 +1097,35 @@ workflow:
 
   - name: Combine survey name with patrol events for filename
     id: combine_patrol_event_names
-    task: combine_names 
-    partial: 
-      b: _analysis_data
-    mapvalues: 
-      argnames: a
-      argvalues: ${{ workflow.retrieve_survey_name.return }}
+    task: join_with_underscore
+    partial:
+      second: analysis_data
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
 
   - name: Zip filename with patrol events dataframe
     id: zip_filename_patrol_df
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.combine_patrol_event_names.return }}
         - ${{ workflow.select_patrol_event_cols.return }}
 
   - name: Persist patrol events as csv
     id: persist_patrol_events_csv
-    task: persist_df_wrapper
+    task: persist_df
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetypes:
-        - csv
-      filename: null
-      sanitize: false
+      filetype: csv
     mapvalues:
       argnames:
-        - filename_prefix
+        - filename
         - df
       argvalues: ${{ workflow.zip_filename_patrol_df.return }}
 
@@ -1019,8 +1134,8 @@ workflow:
     task: select_columns
     partial:
       columns: [
-        "serial_number", "transect_id", "dist_to_centre", 
-        "ortho_dist", "intersects_transect", "geometry"    
+        "serial_number", "transect_id", "dist_to_centre",
+        "ortho_dist", "intersects_transect", "geometry"
       ]
       raise_on_missing: false
     mapvalues:
@@ -1029,109 +1144,191 @@ workflow:
 
   - name: Combine survey name with patrol events for gpkg filename
     id: combine_gpkg_name
-    task: combine_names 
-    partial: 
-      b: _events
-    mapvalues: 
-      argnames: a
-      argvalues: ${{ workflow.retrieve_survey_name.return }}
+    task: join_with_underscore
+    partial:
+      second: events
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
 
   - name: Zip filename with gpkg columns df
     id: zip_filename_gpkg_df
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.combine_gpkg_name.return }}
         - ${{ workflow.select_gpkg_columns.return }}
 
   - name: Persist patrol events as gpkg
     id: persist_patrol_events_gpkg
-    task: persist_df_wrapper 
+    task: persist_df
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetypes: 
-        - gpkg 
-      filename: null
-      sanitize: false 
+      filetype: gpkg
     mapvalues:
       argnames:
-        - filename_prefix
+        - filename
         - df
       argvalues: ${{ workflow.zip_filename_gpkg_df.return }}
 
   - name: Convert all name values in transects to lowercase
     id: format_transect_names
     task: format_text_column
-    partial: 
+    partial:
       column: name
-      method: lower 
-    mapvalues:  
-      argnames: df 
+      method: lower
+    mapvalues:
+      argnames: df
       argvalues: ${{ workflow.filter_transect_columns.return }}
 
   - name: Combine survey name with transects for gpkg filename
     id: combine_transect_gpkg_name
-    task: combine_names 
-    partial: 
-      b: _transects
-    mapvalues: 
-      argnames: a
-      argvalues: ${{ workflow.retrieve_survey_name.return }}
-  
+    task: join_with_underscore
+    partial:
+      second: transect_areas
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
+
   - name: Zip filename with transects df for gpkg export
     id: zip_filename_transect_df
-    task: zip_groupbykey
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
     partial:
-      sequences:
+      iterables:
         - ${{ workflow.combine_transect_gpkg_name.return }}
         - ${{ workflow.format_transect_names.return }}
 
-  - name: Persist transects as gpkg 
-    id: persist_transects_gpkg 
-    task: persist_df_wrapper 
-    partial: 
+  - name: Persist transects as gpkg
+    id: persist_transects_gpkg
+    task: persist_df
+    partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetypes: 
-        - gpkg 
-      filename: null 
-      sanitize: false 
-    mapvalues: 
-      argnames: 
-        - filename_prefix
+      filetype: gpkg
+    mapvalues:
+      argnames:
+        - filename
         - df
       argvalues: ${{ workflow.zip_filename_transect_df.return }}
-  
-  # - name: Combine survey name with original transects for gpkg filename
-  #   id: combine_orig_transect_gpkg_name
-  #   task: combine_names 
-  #   partial: 
-  #     b: _orig_transects
-  #   mapvalues: 
-  #     argnames: a
-  #     argvalues: ${{ workflow.retrieve_survey_name.return }}
 
-  # - name: Zip filename with original transects df for gpkg export
-  #   id: zip_filename_orig_transect_df
-  #   task: zip_groupbykey
-  #   partial:
-  #     sequences:
-  #       - ${{ workflow.combine_orig_transect_gpkg_name.return }}
-  #       - ${{ workflow.reproject_transects.return }} 
+  # Transect lines: the same visited subset as "transect_areas" above, but with
+  # the simplified line geometry (pre-buffering) instead of the buffered polygon.
+  - name: Zip transect lines with visited transects
+    id: zip_lines_visited
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.simplify_tolerance.return }}
+        - ${{ workflow.visited_transects.return }}
 
-  # - name: Persist original transects as gpkg 
-  #   id: persist_orig_transects_gpkg 
-  #   task: persist_df_wrapper 
-  #   partial: 
-  #     root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     filetypes: 
-  #       - gpkg 
-  #     filename: null 
-  #     sanitize: false 
-  #   mapvalues: 
-  #     argnames: 
-  #       - filename_prefix
-  #       - df
-  #     argvalues: ${{ workflow.zip_filename_orig_transect_df.return }}
+  - name: Filter transect lines to only visited transects
+    id: visited_transect_lines
+    task: filter_transect_lines_by_visited
+    partial: 
+      name_column: name
+    mapvalues:
+      argnames:
+        - lines
+        - visited
+      argvalues: ${{ workflow.zip_lines_visited.return }}
+
+  - name: Reproject transect lines back to epsg:4326 for export
+    id: reproject_transect_lines
+    task: reproject_gdf
+    partial:
+      target_crs: "epsg:4326"
+    mapvalues:
+      argnames: gdf
+      argvalues: ${{ workflow.visited_transect_lines.return }}
+
+  - name: Combine survey name with transect lines for gpkg filename
+    id: combine_transect_lines_gpkg_name
+    task: join_with_underscore
+    partial:
+      second: transect_lines
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.combine_survey_period_name.return }}
+
+  - name: Zip filename with transect lines df for gpkg export
+    id: zip_filename_transect_lines_df
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.combine_transect_lines_gpkg_name.return }}
+        - ${{ workflow.reproject_transect_lines.return }}
+
+  - name: Persist transect lines as gpkg
+    id: persist_transect_lines_gpkg
+    task: persist_df
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filetype: gpkg
+    mapvalues:
+      argnames:
+        - filename
+        - df
+      argvalues: ${{ workflow.zip_filename_transect_lines_df.return }}
+
+  # Surface persisted file paths so a reviewer can copy one into the dsc_publish workflow.
+  # Deliberately does NOT use any_keyed_iterables_are_skips here: with many independent
+  # survey periods, it's normal for some individual period to have nothing persisted
+  # (e.g. no visited transects that period) while others succeed. That check would treat
+  # any single skipped period as reason to discard the *entire* combined list, hiding
+  # every other period's real output. groupbykey's own SkippedDependencyFallback already
+  # drops just the skipped entries and keeps the rest.
+  - name: Zip persisted transects and patrol events paths
+    id: zip_publish_paths
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.persist_transects_gpkg.return }}
+        - ${{ workflow.persist_patrol_events_gpkg.return }}
+
+  - name: Collect all persisted transects paths
+    id: gather_transects_paths
+    task: collect_transects_paths
+    partial:
+      zipped: ${{ workflow.zip_publish_paths.return }}
+
+  - name: Collect all persisted patrol events paths
+    id: gather_patrol_events_paths
+    task: collect_patrol_events_paths
+    partial:
+      zipped: ${{ workflow.zip_publish_paths.return }}
+
+  - name: Format publish file paths as text
+    id: publish_paths_text
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.format_publish_paths
+    partial:
+      transects_paths: ${{ workflow.gather_transects_paths.return }}
+      patrol_events_paths: ${{ workflow.gather_patrol_events_paths.return }}
+
+  - name: Create widget showing files ready to publish
+    id: publish_paths_widget
+    task: create_text_widget_single_view
+    partial:
+      title: "Files ready to publish"
+      data: ${{ workflow.publish_paths_text.return }}
 
   - name: Overall dashboard
     id: overall_dashboard
@@ -1139,6 +1336,6 @@ workflow:
     partial:
       details: ${{ workflow.workflow_details.return}}
       widgets: []
+       # - ${{ workflow.publish_paths_widget.return }}
       time_range: ${{ workflow.time_range.return}}
       groupers: ${{ workflow.groupers.return }}
-      

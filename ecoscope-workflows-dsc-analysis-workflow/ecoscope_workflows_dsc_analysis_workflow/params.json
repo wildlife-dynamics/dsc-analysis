@@ -73,14 +73,14 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Configure Google Earth Engine connection"
+      "title": "Configure Google Earth Engine"
     },
     "connection_config": {
       "additionalProperties": false,
       "properties": {
         "entries": {
           "items": {
-            "$ref": "#/$defs/ConnectionConfigEntry"
+            "$ref": "#/$defs/ConnectionIdsEntry"
           },
           "title": "Entries",
           "type": "array"
@@ -135,34 +135,9 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
-    "ConnectionConfigEntry": {
+    "ConnectionIdsEntry": {
       "properties": {
-        "earthranger": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/EarthRangerConfig"
-            }
-          ],
-          "title": ""
-        },
-        "surveys": {
-          "items": {
-            "$ref": "#/$defs/SurveyConfig"
-          },
-          "title": "Surveys",
-          "type": "array"
-        }
-      },
-      "required": [
-        "earthranger",
-        "surveys"
-      ],
-      "title": "ConnectionConfigEntry",
-      "type": "object"
-    },
-    "EarthRangerConfig": {
-      "properties": {
-        "server": {
+        "connection": {
           "allOf": [
             {
               "$ref": "#/$defs/EarthRangerConnection"
@@ -171,17 +146,25 @@
           "description": "Select one of your configured data sources.",
           "title": ""
         },
-        "patrol_type_id": {
-          "description": "Numeric or UUID identifier for the patrol type in EarthRanger.",
-          "title": "Patrol Type ID",
+        "patrol_id": {
+          "title": "Patrol Id",
           "type": "string"
+        },
+        "erSpatialTransectsGroupId": {
+          "description": "EarthRanger spatial group ID(s) that contain the transect features.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Transects Group ID",
+          "type": "array"
         }
       },
       "required": [
-        "server",
-        "patrol_type_id"
+        "connection",
+        "patrol_id",
+        "erSpatialTransectsGroupId"
       ],
-      "title": "EarthRangerConfig",
+      "title": "ConnectionIdsEntry",
       "type": "object"
     },
     "EarthRangerConnection": {
@@ -195,77 +178,6 @@
         "name"
       ],
       "title": "EarthRangerConnection",
-      "type": "object"
-    },
-    "SurveyConfig": {
-      "properties": {
-        "surveyName": {
-          "description": "A unique name identifying this survey (e.g. 'Amboseli Elephant Survey Q1 2026').",
-          "title": "Survey Name",
-          "type": "string"
-        },
-        "time_range": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/SurveyTimeRange"
-            }
-          ],
-          "description": "The date/time window covered by this survey.",
-          "title": "Time Range"
-        },
-        "erSpatialTransectsGroupId": {
-          "description": "EarthRanger spatial group ID that contains the transect features.",
-          "title": "Transects Group ID",
-          "type": "string"
-        }
-      },
-      "required": [
-        "surveyName",
-        "time_range",
-        "erSpatialTransectsGroupId"
-      ],
-      "title": "SurveyConfig",
-      "type": "object"
-    },
-    "SurveyTimeRange": {
-      "properties": {
-        "since": {
-          "format": "date-time",
-          "title": "Since",
-          "type": "string"
-        },
-        "until": {
-          "format": "date-time",
-          "title": "Until",
-          "type": "string"
-        },
-        "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
-          "default": {
-            "label": "UTC",
-            "tzCode": "UTC",
-            "name": "UTC",
-            "utc": "+00:00"
-          },
-          "title": "Timezone"
-        },
-        "time_format": {
-          "default": "%d %b %Y %H:%M:%S",
-          "description": "The time format",
-          "ecoscope:advanced": true,
-          "title": "Time Format",
-          "type": "string"
-        }
-      },
-      "required": [
-        "since",
-        "until"
-      ],
-      "title": "SurveyTimeRange",
       "type": "object"
     }
   },
