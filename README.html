@@ -313,7 +313,7 @@
       <tr>
         <td><code>{survey}_{period}_transect_areas</code></td>
         <td>GeoPackage</td>
-        <td>Visited transect corridors (buffered) labelled with mean NDVI and slope from Google Earth Engine</td>
+        <td>Visited transect corridors (buffered) labelled with mean NDVI, terrain slope, and PALSAR woody cover from Google Earth Engine</td>
       </tr>
       <tr>
         <td><code>{survey}_{period}_transect_lines</code></td>
@@ -322,6 +322,15 @@
       </tr>
     </tbody>
   </table>
+
+  <p>
+    In addition, the workflow ingests weather station data <strong>once per run</strong> — it isn't scoped
+    to any one survey or period:
+  </p>
+  <ul>
+    <li>A <strong>station metadata file</strong> — one row per weather station, with its conservancy and coordinates</li>
+    <li><strong>Per-station, per-year weather reading files</strong> — precipitation, temperature, humidity, and wind speed observations</li>
+  </ul>
 
   <hr />
 
@@ -337,10 +346,11 @@
         <li><code>distancecountwildlife_rep</code> — wildlife observations (species, count, distance, radial angle)</li>
       </ul>
     </li>
-    <li>A <strong>Google Earth Engine</strong> service account configured in Ecoscope (for NDVI and slope imagery)</li>
+    <li>A <strong>Google Earth Engine</strong> service account configured in Ecoscope (for NDVI, slope, and woody cover imagery)</li>
     <li>The <strong>EarthRanger spatial group ID</strong> for each survey's transect lines</li>
     <li>The <strong>patrol type ID</strong> (numeric or UUID) for the DSC patrol type in EarthRanger</li>
     <li>Team members recorded on each patrol should correspond to named <strong>subjects/trackers</strong> in EarthRanger, so their GPS tracks can be used to compute field effort</li>
+    <li>An <strong>EarthRanger connection with a weather station subject group</strong> (e.g. a TAHMO Stations group) — used to fetch and export weather station readings</li>
   </ul>
 
   <hr />
@@ -445,6 +455,41 @@
   <div class="config-step">
     <div class="config-step-header">
       <div class="num">5</div>
+      <h3>Configure Weather Station Connection</h3>
+    </div>
+    <div class="config-step-body">
+      <p>
+        The <strong>Weather Station Subject Group</strong> section configures the workflow's single,
+        shared weather ingestion — this is independent of the per-survey EarthRanger connections in
+        Step 6 and runs once for the whole workflow run, not once per survey or period.
+      </p>
+
+      <table>
+        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Data Source</td>
+            <td>The EarthRanger connection that hosts the weather station subject group</td>
+          </tr>
+          <tr>
+            <td>Weather Station Subject Group</td>
+            <td>EarthRanger subject group name containing the weather stations, e.g. <code>TAHMO Stations</code> (defaults to <code>TAHMO Stations</code>)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Note:</strong> This EarthRanger connection can be the same as, or different from,
+        any of the survey connections configured in Step 6 — whichever site actually hosts the
+        weather station subjects.
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="config-step">
+    <div class="config-step-header">
+      <div class="num">6</div>
       <h3>Configure EarthRanger Connection and Survey Details</h3>
     </div>
     <div class="config-step-body">
@@ -504,9 +549,18 @@
     <li>Estimate the true animal position from each observation's radial angle and distance to centre (<code>dist_to_centre</code>).</li>
     <li>Calculate the orthogonal distance from the estimated animal position to the transect centreline (<code>ortho_dist</code>).</li>
     <li>Filter events to those that intersect a 500 m transect buffer corridor; discard unvisited transects.</li>
-    <li>Label visited transects with mean HLS NDVI (max 30 % cloud cover) and terrain slope from Google Earth Engine (30 m resolution).</li>
+    <li>Label visited transects with mean HLS NDVI (max 30 % cloud cover), terrain slope, and PALSAR woody cover (dry-season composite) from Google Earth Engine.</li>
     <li>Merge transect covariates into the wildlife observation dataset.</li>
     <li>Export all outputs per survey period to <code>$ECOSCOPE_WORKFLOWS_RESULTS</code>.</li>
+  </ol>
+
+  <p>
+    Independently of the per-survey steps above, and only once for the whole run, the workflow also:
+  </p>
+  <ol class="run-steps">
+    <li>Fetches observations from the configured weather station subject group and extracts precipitation, temperature, humidity, and wind speed from each reading.</li>
+    <li>Tags each weather station with the conservancy boundary it falls within.</li>
+    <li>Exports one station metadata file and one weather readings file per station per year to <code>$ECOSCOPE_WORKFLOWS_RESULTS</code>.</li>
   </ol>
 
   <hr />
@@ -570,7 +624,7 @@
         <div class="output-file">{survey}_{period}_transect_areas.gpkg</div>
         <div class="output-desc">
           Visited transect corridors (buffered polygons) in EPSG:4326 with <code>NDVI_HSL</code>,
-          <code>slope</code>, and <code>img_date_hsl_ndvi</code> columns
+          <code>slope</code>, <code>WoodyCover</code>, and <code>img_date_hsl_ndvi</code> columns
         </div>
       </div>
     </div>
@@ -587,6 +641,44 @@
     <strong>Note:</strong> If a survey has no visited transects or no matching patrol events for a
     given period, that period's outputs are skipped gracefully rather than raising an error —
     other periods and surveys in the same run are unaffected.
+  </div>
+
+  <div class="callout">
+    <strong>Note:</strong> As of this revision, <code>WoodyCover</code> is labelled onto the transect
+    corridors and appears in <code>transect_areas.gpkg</code>, but is not yet included in the
+    <code>analysis_data.csv</code> column selection — only <code>NDVI_HSL</code> and <code>slope</code>
+    are currently carried through to that file.
+  </div>
+
+  <p>
+    In addition to the six per-survey-period files above, the workflow produces two
+    <strong>workflow-wide</strong> weather outputs — these are fetched once for the whole run against
+    the workflow's overall Time Range, independent of any survey or period:
+  </p>
+
+  <div class="output-grid">
+    <div class="output-item">
+      <div class="output-icon">🌦️</div>
+      <div>
+        <div class="output-file">station_metadata.parquet</div>
+        <div class="output-desc">
+          One row per weather station, produced once per run. Columns:
+          <code>Station ID</code>, <code>Conservancy</code>, <code>Latitude</code>, <code>Longitude</code>
+        </div>
+      </div>
+    </div>
+    <div class="output-item">
+      <div class="output-icon">🌧️</div>
+      <div>
+        <div class="output-file">{station_id}_{year}.parquet</div>
+        <div class="output-desc">
+          One file per weather station per calendar year covered by the Time Range. Columns:
+          <code>Station ID</code>, <code>Precipitation</code>, <code>Humidity</code>,
+          <code>Temperature</code>, <code>Windspeed</code>, <code>fixtime</code> — join back to
+          <code>station_metadata.parquet</code> on <code>Station ID</code> for coordinates and conservancy
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
