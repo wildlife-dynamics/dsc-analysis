@@ -153,9 +153,17 @@ story += [
     bullet("An <b>events GeoPackage</b> — spatial point layer of wildlife observations "
            "with key distance sampling geometry fields"),
     bullet("A <b>transect areas GeoPackage</b> — visited transect corridors (buffered) "
-           "labelled with mean NDVI and slope values from Google Earth Engine"),
+           "labelled with mean NDVI, slope, and PALSAR woody cover values from Google "
+           "Earth Engine"),
     bullet("A <b>transect lines GeoPackage</b> — visited transect centrelines "
            "(unbuffered), reprojected to EPSG:4326"),
+    sp(4),
+    p("Independently of the per-survey-period outputs above, and only once for the "
+      "whole workflow run, a <b>station-centric weather ingestion</b> also delivers:"),
+    bullet("A <b>station metadata file</b> — one row per weather station, with its "
+           "conservancy and coordinates"),
+    bullet("<b>Per-station, per-year weather reading files</b> — precipitation, "
+           "temperature, humidity, and wind speed observations"),
     sp(6),
     h2("Output summary"),
     make_table(
@@ -171,7 +179,7 @@ story += [
             ["{survey}_{period}_events",            "GeoPackage",
              "Spatial point layer of wildlife observation events"],
             ["{survey}_{period}_transect_areas",    "GeoPackage",
-             "Visited transect corridors (buffered) with NDVI and slope labels (EPSG:4326)"],
+             "Visited transect corridors (buffered) with NDVI, slope, and woody cover labels (EPSG:4326)"],
             ["{survey}_{period}_transect_lines",    "GeoPackage",
              "Visited transect centrelines (unbuffered) in EPSG:4326"],
         ],
@@ -180,6 +188,22 @@ story += [
     note("{survey} is the survey name as defined in the connection configuration and "
          "{period} is the detected activity period label (e.g. 2026_02). All six output "
          "file sets are produced independently for each survey period."),
+    sp(6),
+    make_table(
+        [
+            ["Output type", "Format", "Description"],
+            ["station_metadata", "Parquet",
+             "One row per weather station: Station ID, Conservancy, Latitude, Longitude"],
+            ["{station_id}_{year}", "Parquet",
+             "One file per weather station per calendar year: Precipitation, Humidity, "
+             "Temperature, Windspeed, fixtime"],
+        ],
+        [5.5*cm, 2.5*cm, W - 8*cm],
+    ),
+    note("Unlike the six file sets above, these two weather output types are produced "
+         "exactly once per workflow run — not once per survey or survey period — and are "
+         "not prefixed with a survey/period name. See Section 9 for the full weather "
+         "ingestion pipeline."),
     PageBreak(),
 ]
 
@@ -198,7 +222,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0", "ecoscope-workflows"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*",  "ecoscope-workflows-custom"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.0.*", "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.2.*", "ecoscope-workflows-custom"],
             ["pydeck",                                  "0.9.2", "conda-forge"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0", "conda-forge"],
         ],
@@ -244,6 +268,15 @@ story += [
          "on patrol metadata events (Team Members / reported_by) match named "
          "subjects/trackers in EarthRanger, so their GPS observations can be "
          "retrieved and converted into daily distance and duration statistics."),
+    sp(6),
+    h2("2.5  Weather EarthRanger connection"),
+    p("A second, independent EarthRanger connection (<b>set_er_connection</b>, "
+      "id: weather_er_client) plus a subject group name (<b>set_string_var</b>, id: "
+      "weather_subject_group_name, default: \"TAHMO Stations\") configure the "
+      "workflow's weather station ingestion. This connection is shared across the "
+      "whole run — like the GEE connection — rather than being configured per survey, "
+      "and it may point at the same or a different EarthRanger site than any of the "
+      "per-survey connections in connection_config."),
     PageBreak(),
 ]
 
@@ -264,6 +297,12 @@ story += [
                                   "patrol events are fetched. Set broadly to cover all surveys "
                                   "in the run. Each survey's own time window controls data fetching."],
             ["gee_client",        "Google Earth Engine service account connection"],
+            ["weather_er_client", "EarthRanger connection hosting the weather station subject "
+                                  "group. Shared across the whole run — configured once, not "
+                                  "per survey (see Section 2.5)"],
+            ["weather_subject_group_name", "EarthRanger subject group name containing the "
+                                  "weather stations. RJSF title: \"Weather Station Subject "
+                                  "Group\", default: \"TAHMO Stations\""],
             ["connection_config", "Array of EarthRanger connection entries, one per survey "
                                   "(see Section 3.2)"],
         ],
@@ -540,7 +579,7 @@ story += [
       "satellite imagery labeling and GeoPackage export."),
     sp(4),
     note("The visited, buffered corridor geometry from this step is exported as "
-         "the transect_areas GeoPackage (Section 9). A second, independent branch "
+         "the transect_areas GeoPackage (Section 10). A second, independent branch "
          "filters the pre-buffer simplified centrelines (from Section 6.2, step 2) "
          "down to the same visited transect names (filter_transect_lines_by_visited) "
          "and reprojects them to EPSG:4326 for export as the transect_lines "
@@ -644,14 +683,27 @@ story += [
       "<b>label_features_with_image_stat</b> (scale: 30 m, reducer_key: mean, "
       "out_column: slope)."),
     sp(6),
-    h2("8.3  Imagery labeling workflow"),
+    h2("8.3  PALSAR woody cover"),
+    p("A woody cover layer is built from PALSAR imagery via "
+      "<b>build_palsar_woody_cover_image</b>, using a dry-season window of "
+      "<b>July–September</b> (dry_season_start_month: 7, dry_season_end_month: 9) "
+      "and output band name <b>WoodyCover</b>. Like the HLS NDVI composite, this image "
+      "is built per survey period, anchored to that period's minimum patrol event date "
+      "(zip_aoi_min_date)."),
+    sp(4),
+    p("The mean woody cover value within each transect is computed via a third call to "
+      "<b>label_features_with_image_stat</b> (scale: 50 m, reducer_key: mean, "
+      "out_column: WoodyCover), chained after the slope-labelled transects via "
+      "<b>zip_woody_cover_image</b>."),
+    sp(6),
+    h2("8.4  Imagery labeling workflow"),
     p("The transects are converted to a Google Earth Engine FeatureCollection "
       "via <b>to_ee_feature_collection</b> before labeling. The period's minimum "
       "patrol event date (<b>get_survey_min_date</b>) is both added as a column to "
       "the transect DataFrame and passed to the NDVI image builder as the "
       "<b>since</b> parameter to anchor the composite date."),
     sp(6),
-    h2("8.4  Final transect column selection"),
+    h2("8.5  Final transect column selection"),
     p("After labeling, transects are trimmed to the columns required for "
       "merging and export:"),
     make_table(
@@ -661,21 +713,103 @@ story += [
             ["img_date_hsl_ndvi","Yes", "Yes", "Period min. patrol date used as NDVI image anchor"],
             ["NDVI_HSL",         "Yes", "Yes", "Mean HLS NDVI value along transect"],
             ["slope",            "Yes", "Yes", "Mean terrain slope along transect"],
+            ["WoodyCover",       "Yes", "Yes", "Mean PALSAR woody cover value along transect"],
             ["geometry",         "Yes", "No",  "Transect corridor geometry (excluded from CSV merge)"],
         ],
         [3.5*cm, 3.2*cm, 2.5*cm, W - 9.2*cm],
     ),
     note("The separately exported transect_lines.gpkg (Section 6.4) carries only "
          "the transect name and unbuffered line geometry — it is not labelled with "
-         "NDVI_HSL, slope, or img_date_hsl_ndvi."),
+         "NDVI_HSL, slope, WoodyCover, or img_date_hsl_ndvi."),
+    note("\"Included in merge\" means the column survives into merge_filtered_patrols' "
+         "right-hand input (exclude_geom). WoodyCover does reach that merge step, but "
+         "as of this revision it is then dropped by the final analysis_data.csv column "
+         "selection (select_patrol_event_cols), which was not updated to include it "
+         "alongside NDVI_HSL and slope — see Section 10 for the current analysis_data.csv "
+         "column list."),
     PageBreak(),
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. OUTPUT FILES
+# 9. WEATHER DATA INGESTION
 # ══════════════════════════════════════════════════════════════════════════════
 story += [
-    h1("9. Output Files"),
+    h1("9. Weather Data Ingestion"),
+    hr(),
+    h2("9.1  Scope: once per run, not per survey or period"),
+    p("Weather is a station-centric archive (station × year), not scoped to any one "
+      "survey or activity period. Unlike every pipeline in Sections 4–8, the weather "
+      "steps below run exactly once per workflow run, fetched against the workflow's "
+      "overall <b>time_range</b> rather than any survey's own period."),
+    sp(6),
+    h2("9.2  Fetching station observations"),
+    p("<b>get_subjectgroup_observations</b> retrieves observations for the configured "
+      "weather_subject_group_name from the weather_er_client connection, over the "
+      "workflow time_range (filter: clean, include_details: true, "
+      "include_subjectsource_details: false, raise_on_empty: false — an empty result "
+      "does not raise an error, it simply skips the downstream weather steps for this run)."),
+    sp(6),
+    h2("9.3  Extracting weather variables"),
+    p("Four chained calls to <b>extract_value_from_json_column</b> pull numeric fields "
+      "out of the extra__observation_details JSON column into flat float columns:"),
+    make_table(
+        [
+            ["Output column", "Source JSON field"],
+            ["Precipitation", "precipitation"],
+            ["Temperature",   "surface_air_temperature"],
+            ["Humidity",      "relative_humidity"],
+            ["Windspeed",     "wind_speed"],
+        ],
+        [5*cm, W - 5*cm],
+    ),
+    sp(6),
+    h2("9.4  Tagging stations with their conservancy"),
+    p("A one-time conservancy boundaries file (mara_conservancies.parquet) is "
+      "downloaded from Dropbox via <b>fetch_and_persist_file</b> (overwrite_existing: "
+      "false, retries: 3), loaded with <b>load_df</b>, and reprojected to EPSG:4326. "
+      "Each weather reading is then spatially joined to a conservancy boundary via "
+      "<b>ecoscope_workflows_ext_ste.tasks.spatial_operations.spatial_join</b> "
+      "(how: inner, predicate: intersects) — stations that don't fall within any "
+      "boundary in the file are dropped from the weather output."),
+    sp(6),
+    h2("9.5  Identity, coordinates, and date/time decomposition"),
+    p("Station identity columns are renamed via <b>map_columns</b> "
+      "(extra__subject__name → Station ID, name → Conservancy). Latitude and "
+      "longitude are extracted from the point geometry via <b>parse_df_point</b>, "
+      "and the fixtime timestamp is split into date, time, and year components via "
+      "<b>decompose_datetime</b>, then renamed to Date and Time via a second "
+      "<b>map_columns</b> call."),
+    sp(6),
+    h2("9.6  Station metadata output"),
+    p("Station ID, Conservancy, Latitude, and Longitude are selected "
+      "(<b>select_columns</b>) and deduplicated to one row per station via "
+      "<b>ecoscope_workflows_ext_distance_sample_counts.tasks.transformation."
+      "dedupe_by_column</b> (column: Station ID). The result is persisted once, "
+      "for the whole run, as <b>station_metadata.parquet</b> — this is the only "
+      "persist step in the workflow that is not fanned out via mapvalues."),
+    sp(6),
+    h2("9.7  Weather readings output"),
+    p("Station ID, Precipitation, Humidity, Temperature, Windspeed, fixtime_year, "
+      "and fixtime are selected (<b>select_columns</b>) — deliberately omitting "
+      "Conservancy/Latitude/Longitude, which live in station_metadata.parquet instead "
+      "so the per-reading files stay slim. "
+      "<b>ecoscope_workflows_ext_distance_sample_counts.tasks.transformation."
+      "split_weather_by_station_year</b> groups the readings by (Station ID, "
+      "fixtime_year) and emits one [filename, DataFrame] pair per group, keyed "
+      "<b>{station}_{year}</b> (e.g. TAHMO001_2026). Each pair is persisted via "
+      "<b>persist_df</b> (filetype: parquet) using the standard filename/df "
+      "mapvalues pattern used elsewhere in the workflow."),
+    note("To reconstruct a station's full weather record with location, join a "
+         "{station_id}_{year}.parquet file back to station_metadata.parquet on "
+         "Station ID."),
+    PageBreak(),
+]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 10. OUTPUT FILES
+# ══════════════════════════════════════════════════════════════════════════════
+story += [
+    h1("10. Output Files"),
     hr(),
     p("All outputs are written to <b>$ECOSCOPE_WORKFLOWS_RESULTS</b>. "
       "Six file sets are produced for each survey period. "
@@ -703,10 +837,17 @@ story += [
              "transect_id, dist_to_centre, ortho_dist, intersects_transect, geometry"],
             ["{survey}_{period}_transect_areas.gpkg", "GeoPackage",
              "Visited transect corridors — buffered polygons (EPSG:4326) with "
-             "environmental covariates: name, img_date_hsl_ndvi, NDVI_HSL, slope, geometry"],
+             "environmental covariates: name, img_date_hsl_ndvi, NDVI_HSL, slope, "
+             "WoodyCover, geometry"],
             ["{survey}_{period}_transect_lines.gpkg", "GeoPackage",
              "Visited transect centrelines — unbuffered lines (EPSG:4326), the same "
              "visited subset as transect_areas but without environmental covariates"],
+            ["station_metadata.parquet", "Parquet",
+             "Weather station metadata, produced once per run (not per survey/period): "
+             "Station ID, Conservancy, Latitude, Longitude"],
+            ["{station_id}_{year}.parquet", "Parquet",
+             "Weather readings, one file per station per calendar year (not per survey/"
+             "period): Station ID, Precipitation, Humidity, Temperature, Windspeed, fixtime"],
         ],
         [5.5*cm, 2.5*cm, W - 8*cm],
     ),
@@ -717,16 +858,21 @@ story += [
          "distance sampling density estimation models. If a survey period has no "
          "visited transects or no field-effort GPS data, the corresponding file(s) "
          "for that period are simply not produced rather than raising an error."),
+    note("WoodyCover is labelled onto transects and appears in _transect_areas.gpkg "
+         "(Section 8.5), but as of this revision it is not included in the "
+         "_analysis_data.csv column list above — only NDVI_HSL and slope are currently "
+         "carried through to that file. The two weather output files are produced "
+         "exactly once per workflow run, independent of survey or period — see Section 9."),
     PageBreak(),
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 10. WORKFLOW EXECUTION LOGIC
+# 11. WORKFLOW EXECUTION LOGIC
 # ══════════════════════════════════════════════════════════════════════════════
 story += [
-    h1("10. Workflow Execution Logic"),
+    h1("11. Workflow Execution Logic"),
     hr(),
-    h2("10.1  Skip conditions"),
+    h2("11.1  Skip conditions"),
     p("All tasks share a global default skip policy defined in "
       "<b>task-instance-defaults</b>:"),
     bullet("<b>any_is_empty_df</b> — skips the task if any upstream DataFrame "
@@ -740,7 +886,7 @@ story += [
       "input iterable for a given key was itself a skip, that key's pairing is "
       "dropped instead of propagating a malformed pair downstream."),
     sp(4),
-    note("The final publish-path aggregation step (Section 9 / dsc_publish handoff) "
+    note("The final publish-path aggregation step (Section 11.6 / dsc_publish handoff) "
          "deliberately omits any_keyed_iterables_are_skips: with many independent "
          "survey periods, it is normal for some individual period to have nothing "
          "persisted (e.g. no visited transects that period) while others succeed. "
@@ -748,7 +894,7 @@ story += [
          "skipped entries and keeps the rest, so using the stricter check there "
          "would discard every other period's real output."),
     sp(6),
-    h2("10.2  Per-survey-period fan-out with mapvalues"),
+    h2("11.2  Per-survey-period fan-out with mapvalues"),
     p("Every data-bearing step is executed once per survey <i>period</i> via the "
       "<b>mapvalues</b> directive. The fan-out list originates from "
       "<b>split_connection_configs</b>, is then exploded per detected activity "
@@ -770,7 +916,7 @@ story += [
         [6*cm, W - 6*cm],
     ),
     sp(6),
-    h2("10.3  groupbykey — multi-input coordination"),
+    h2("11.3  groupbykey — multi-input coordination"),
     p("<b>groupbykey</b> (the successor to the older zip_groupbykey task) is used "
       "throughout the workflow to combine two or more per-period iterables into "
       "paired tuples before feeding them into a multi-argument mapvalues step. "
@@ -791,7 +937,7 @@ story += [
     bullet("<b>zip_filename_*</b> — pairs dynamically constructed filenames "
            "with DataFrames to feed persist_df"),
     sp(6),
-    h2("10.4  Dynamic filename construction"),
+    h2("11.4  Dynamic filename construction"),
     p("Output filenames are constructed at runtime with <b>join_with_underscore</b>. "
       "The survey name and period label are first combined into a shared base name "
       "(<b>combine_survey_period_name</b>, e.g. olaremotorogi_2026_02) that is then "
@@ -808,8 +954,13 @@ story += [
         ],
         [4*cm, W - 4*cm],
     ),
+    note("The two weather outputs (Section 9) do not follow this pattern: "
+         "station_metadata is a fixed filename set directly on its persist_df step, "
+         "and each {station}_{year} weather-readings filename is constructed by "
+         "split_weather_by_station_year rather than combine_survey_period_name + "
+         "join_with_underscore."),
     sp(6),
-    h2("10.5  Fill propagation for metadata fields"),
+    h2("11.5  Fill propagation for metadata fields"),
     p("Patrol events in EarthRanger are recorded sequentially: a metadata event "
       "(distancecountpatrol_rep) carrying the transect ID and observer count "
       "typically appears once per transect walk, while multiple wildlife "
@@ -822,7 +973,7 @@ story += [
       "immediately beforehand so it matches the lowercased transect names used "
       "for name-based transect matching."),
     sp(6),
-    h2("10.6  Publish handoff (prepared, not yet wired in)"),
+    h2("11.6  Publish handoff (prepared, not yet wired in)"),
     p("The workflow builds a text widget (<b>create_text_widget_single_view</b>, "
       "title: \"Files ready to publish\") listing every persisted transects and "
       "patrol-events GeoPackage path across all surveys and periods, intended for "
@@ -834,10 +985,10 @@ story += [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. SOFTWARE VERSIONS
+# 12. SOFTWARE VERSIONS
 # ══════════════════════════════════════════════════════════════════════════════
 story += [
-    h1("11. Software Versions"),
+    h1("12. Software Versions"),
     hr(),
     make_table(
         [
@@ -845,7 +996,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.0.*"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.2.*"],
             ["pydeck",                                  "0.9.2"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0"],
         ],
