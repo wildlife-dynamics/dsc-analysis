@@ -15,11 +15,6 @@ The workflow supports **multiple surveys per run**. Each survey is automatically
 - A **transect areas GeoPackage** — visited transect corridors (buffered) labelled with mean NDVI, terrain slope, and PALSAR woody cover from Google Earth Engine
 - A **transect lines GeoPackage** — visited transect centrelines (unbuffered), reprojected to EPSG:4326
 
-In addition, the workflow ingests weather station data **once per run** (it isn't scoped to any one survey or period):
-
-- A **station metadata file** — one row per weather station, with its conservancy and coordinates
-- **Per-station, per-year weather reading files** — precipitation, temperature, humidity, and wind speed observations
-
 ---
 
 ## Prerequisites
@@ -33,7 +28,6 @@ Before running the workflow, ensure you have:
 - The **EarthRanger spatial group ID** for each survey's transect lines
 - The **patrol type ID** (numeric or UUID) for the DSC patrol type in EarthRanger
 - Team members recorded on each patrol should correspond to named **subjects/trackers** in EarthRanger, so their GPS tracks can be used to compute field effort
-- An **EarthRanger connection with a weather station subject group** (e.g. a TAHMO Stations group) — used to fetch and export weather station readings
 
 ---
 
@@ -92,20 +86,7 @@ Select your Google Earth Engine service account from the **Data Source** dropdow
 
 ---
 
-### Step 5 — Configure Weather Station Connection
-
-The **Weather Station Subject Group** section configures the workflow's single, shared weather ingestion — this is independent of the per-survey EarthRanger connections in Step 6 and runs once for the whole workflow run, not once per survey or period.
-
-| Field | Description |
-|-------|-------------|
-| Data Source | The EarthRanger connection that hosts the weather station subject group |
-| Weather Station Subject Group | EarthRanger subject group name containing the weather stations, e.g. `TAHMO Stations` (defaults to `TAHMO Stations`) |
-
-> This EarthRanger connection can be the same as, or different from, any of the survey connections configured in Step 6 — whichever site actually hosts the weather station subjects.
-
----
-
-### Step 6 — Configure EarthRanger Connection and Survey Details
+### Step 5 — Configure EarthRanger Connection and Survey Details
 
 Scroll down to **Configure EarthRanger and Survey Details**. Click **+ Add** to add a survey entry — each entry is one independent survey, fetched using the shared Time Range from Step 3.
 
@@ -139,12 +120,6 @@ Once all parameters are configured, click **Submit**. For each survey the workfl
 14. Merge transect covariates into the wildlife observation dataset.
 15. Export all outputs per survey period to `$ECOSCOPE_WORKFLOWS_RESULTS`.
 
-Independently of the per-survey steps above, and only once for the whole run, the workflow also:
-
-16. Fetches observations from the configured weather station subject group and extracts precipitation, temperature, humidity, and wind speed from each reading.
-17. Tags each weather station with the conservancy boundary it falls within.
-18. Exports one station metadata file and one weather readings file per station per year to `$ECOSCOPE_WORKFLOWS_RESULTS`.
-
 ---
 
 ## Output Files
@@ -163,10 +138,3 @@ All outputs are written to `$ECOSCOPE_WORKFLOWS_RESULTS/`. Six files are produce
 > If a survey has no visited transects or no matching patrol events for a given period, that period's outputs are skipped gracefully rather than raising an error — other periods and surveys in the same run are unaffected.
 
 > As of this revision, `WoodyCover` is labelled onto the transect corridors and appears in `{survey}_{period}_transect_areas.gpkg`, but is not yet included in the `{survey}_{period}_analysis_data.csv` column selection — only `NDVI_HSL` and `slope` are currently carried through to that file.
-
-In addition to the six per-survey-period files above, the workflow produces two **workflow-wide** weather outputs — these are fetched once for the whole run against the workflow's overall Time Range, independent of any survey or period:
-
-| File | Description |
-|------|-------------|
-| `station_metadata.parquet` | One row per weather station: `Station ID`, `Conservancy`, `Latitude`, `Longitude` — produced once per run |
-| `{station_id}_{year}.parquet` | One file per weather station per calendar year covered by the Time Range: `Station ID`, `Precipitation`, `Humidity`, `Temperature`, `Windspeed`, `fixtime` — join back to `station_metadata.parquet` on `Station ID` for coordinates and conservancy |

@@ -11,12 +11,10 @@ import os
 import warnings  # 🧪
 from typing import Any
 
-from ecoscope.platform.tasks.config import set_string_var as set_string_var
 from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
-from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
 from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
 from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
@@ -81,6 +79,10 @@ process_events_details = create_func_magicmock(  # 🧪
     func_name="process_events_details",  # 🧪
 )  # 🧪
 from ecoscope.platform.tasks.io import persist_df as persist_df
+from ecoscope.platform.tasks.results import (
+    create_text_widget_single_view as create_text_widget_single_view,
+)
+from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
 from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
@@ -98,7 +100,25 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     add_constant_column as add_constant_column,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    build_hls_ndvi_image as build_hls_ndvi_image,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    build_palsar_woody_cover_image as build_palsar_woody_cover_image,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    build_slope_image as build_slope_image,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     get_server_subdomain as get_server_subdomain,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    get_survey_min_date as get_survey_min_date,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    label_features_with_image_stat as label_features_with_image_stat,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    to_ee_feature_collection as to_ee_feature_collection,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     add_off_transect_distance as add_off_transect_distance,
@@ -111,6 +131,12 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     buffer_transects as buffer_transects,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    collect_patrol_events_paths as collect_patrol_events_paths,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    collect_transects_paths as collect_transects_paths,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     compute_field_effort as compute_field_effort,
@@ -134,10 +160,16 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     ffill_within_patrols as ffill_within_patrols,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    filter_transect_lines_by_visited as filter_transect_lines_by_visited,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     filter_visited_transects as filter_visited_transects,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     flag_events_intersecting_transect as flag_events_intersecting_transect,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    format_publish_paths as format_publish_paths,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     join_with_underscore as join_with_underscore,
@@ -155,64 +187,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     simplify_transects as simplify_transects,
 )
 from ecoscope_workflows_ext_ste.tasks.filter import filter_rows as filter_rows
-
-get_subjectgroup_observations = create_func_magicmock(  # 🧪
-    anchor="ecoscope.platform.tasks.io",  # 🧪
-    func_name="get_subjectgroup_observations",  # 🧪
-)  # 🧪
-from ecoscope.platform.tasks.results import (
-    create_text_widget_single_view as create_text_widget_single_view,
-)
-from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
-from ecoscope.platform.tasks.transformation import (
-    extract_value_from_json_column as extract_value_from_json_column,
-)
-from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
-from ecoscope_workflows_ext_custom.tasks.transformation import (
-    decompose_datetime as decompose_datetime,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_hls_ndvi_image as build_hls_ndvi_image,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_palsar_woody_cover_image as build_palsar_woody_cover_image,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_slope_image as build_slope_image,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_survey_min_date as get_survey_min_date,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    label_features_with_image_stat as label_features_with_image_stat,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    to_ee_feature_collection as to_ee_feature_collection,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    collect_patrol_events_paths as collect_patrol_events_paths,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    collect_transects_paths as collect_transects_paths,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    dedupe_by_column as dedupe_by_column,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    filter_transect_lines_by_visited as filter_transect_lines_by_visited,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    format_publish_paths as format_publish_paths,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    split_weather_by_station_year as split_weather_by_station_year,
-)
-from ecoscope_workflows_ext_ste.tasks.io import (
-    fetch_and_persist_file as fetch_and_persist_file,
-)
-from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
-    spatial_join as spatial_join,
-)
 
 
 def main(params: dict[str, Any], validate_params_schema: bool = True):
@@ -286,40 +260,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("gee_client") or {}))
-        .call()
-    )
-
-    weather_er_client = (
-        task(set_er_connection)
-        .validate()
-        .set_task_instance_id("weather_er_client")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("weather_er_client") or {}))
-        .call()
-    )
-
-    weather_subject_group_name = (
-        task(set_string_var)
-        .validate()
-        .set_task_instance_id("weather_subject_group_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("weather_subject_group_name") or {}))
         .call()
     )
 
@@ -1840,451 +1780,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(target_crs="epsg:4326", **(params.get("reproject_transects") or {}))
         .mapvalues(argnames=["gdf"], argvalues=visited_transects)
-    )
-
-    fetch_weather_obs = (
-        task(get_subjectgroup_observations)
-        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
-        .set_task_instance_id("fetch_weather_obs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            client=weather_er_client,
-            subject_group_name=weather_subject_group_name,
-            time_range=time_range,
-            filter="clean",
-            raise_on_empty=False,
-            include_details=True,
-            include_subjectsource_details=False,
-            **(params.get("fetch_weather_obs") or {}),
-        )
-        .call()
-    )
-
-    extract_precipitation = (
-        task(extract_value_from_json_column)
-        .validate()
-        .set_task_instance_id("extract_precipitation")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=fetch_weather_obs,
-            column_name="extra__observation_details",
-            field_name_options=["precipitation"],
-            output_type="float",
-            output_column_name="Precipitation",
-            **(params.get("extract_precipitation") or {}),
-        )
-        .call()
-    )
-
-    extract_temperature = (
-        task(extract_value_from_json_column)
-        .validate()
-        .set_task_instance_id("extract_temperature")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=extract_precipitation,
-            column_name="extra__observation_details",
-            field_name_options=["surface_air_temperature"],
-            output_type="float",
-            output_column_name="Temperature",
-            **(params.get("extract_temperature") or {}),
-        )
-        .call()
-    )
-
-    extract_humidity = (
-        task(extract_value_from_json_column)
-        .validate()
-        .set_task_instance_id("extract_humidity")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=extract_temperature,
-            column_name="extra__observation_details",
-            field_name_options=["relative_humidity"],
-            output_type="float",
-            output_column_name="Humidity",
-            **(params.get("extract_humidity") or {}),
-        )
-        .call()
-    )
-
-    extract_wind_speed = (
-        task(extract_value_from_json_column)
-        .validate()
-        .set_task_instance_id("extract_wind_speed")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=extract_humidity,
-            column_name="extra__observation_details",
-            field_name_options=["wind_speed"],
-            output_type="float",
-            output_column_name="Windspeed",
-            **(params.get("extract_wind_speed") or {}),
-        )
-        .call()
-    )
-
-    fetch_conservancy_boundaries = (
-        task(fetch_and_persist_file)
-        .validate()
-        .set_task_instance_id("fetch_conservancy_boundaries")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            url="https://www.dropbox.com/scl/fi/xriwdsjeauzd8akk3oc4b/mara_conservancies.parquet?rlkey=lepz395x9jz3podl39vbke0wh&st=aqzdwmt8&dl=0",
-            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            overwrite_existing=False,
-            retries=3,
-            unzip=False,
-            **(params.get("fetch_conservancy_boundaries") or {}),
-        )
-        .call()
-    )
-
-    load_conservancy_boundaries = (
-        task(load_df)
-        .validate()
-        .set_task_instance_id("load_conservancy_boundaries")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            file_path=fetch_conservancy_boundaries,
-            layer=None,
-            deserialize_json=False,
-            **(params.get("load_conservancy_boundaries") or {}),
-        )
-        .call()
-    )
-
-    reproject_conservancy_boundaries = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("reproject_conservancy_boundaries")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            gdf=load_conservancy_boundaries,
-            target_crs="EPSG:4326",
-            **(params.get("reproject_conservancy_boundaries") or {}),
-        )
-        .call()
-    )
-
-    weather_conservancy_join = (
-        task(spatial_join)
-        .validate()
-        .set_task_instance_id("weather_conservancy_join")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            left_df=extract_wind_speed,
-            right_df=reproject_conservancy_boundaries,
-            how="inner",
-            predicate="intersects",
-            **(params.get("weather_conservancy_join") or {}),
-        )
-        .call()
-    )
-
-    rename_weather_identity = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("rename_weather_identity")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=weather_conservancy_join,
-            raise_if_not_found=False,
-            drop_columns=[],
-            retain_columns=[],
-            rename_columns={
-                "extra__subject__name": "Station ID",
-                "name": "Conservancy",
-            },
-            **(params.get("rename_weather_identity") or {}),
-        )
-        .call()
-    )
-
-    extract_weather_lat_long = (
-        task(parse_df_point)
-        .validate()
-        .set_task_instance_id("extract_weather_lat_long")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=rename_weather_identity, **(params.get("extract_weather_lat_long") or {})
-        )
-        .call()
-    )
-
-    decompose_weather_fixtime = (
-        task(decompose_datetime)
-        .validate()
-        .set_task_instance_id("decompose_weather_fixtime")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=extract_weather_lat_long,
-            datetime_column="fixtime",
-            components=["date", "time", "year"],
-            remove_source=False,
-            column_prefix=None,
-            **(params.get("decompose_weather_fixtime") or {}),
-        )
-        .call()
-    )
-
-    rename_weather_datetime = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("rename_weather_datetime")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=decompose_weather_fixtime,
-            raise_if_not_found=False,
-            drop_columns=[],
-            retain_columns=[],
-            rename_columns={"fixtime_date": "Date", "fixtime_time": "Time"},
-            **(params.get("rename_weather_datetime") or {}),
-        )
-        .call()
-    )
-
-    select_station_metadata = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_station_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=rename_weather_datetime,
-            columns=["Station ID", "Conservancy", "Latitude", "Longitude"],
-            raise_on_missing=True,
-            **(params.get("select_station_metadata") or {}),
-        )
-        .call()
-    )
-
-    dedupe_station_metadata = (
-        task(dedupe_by_column)
-        .validate()
-        .set_task_instance_id("dedupe_station_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=select_station_metadata,
-            column="Station ID",
-            **(params.get("dedupe_station_metadata") or {}),
-        )
-        .call()
-    )
-
-    persist_station_metadata = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_station_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=dedupe_station_metadata,
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filetype="parquet",
-            filename="station_metadata",
-            **(params.get("persist_station_metadata") or {}),
-        )
-        .call()
-    )
-
-    select_weather_readings = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_weather_readings")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=rename_weather_datetime,
-            columns=[
-                "Station ID",
-                "Precipitation",
-                "Humidity",
-                "Temperature",
-                "Windspeed",
-                "fixtime_year",
-                "fixtime",
-            ],
-            raise_on_missing=True,
-            **(params.get("select_weather_readings") or {}),
-        )
-        .call()
-    )
-
-    weather_station_year_split = (
-        task(split_weather_by_station_year)
-        .validate()
-        .set_task_instance_id("weather_station_year_split")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=select_weather_readings,
-            station_column="Station ID",
-            year_column="fixtime_year",
-            **(params.get("weather_station_year_split") or {}),
-        )
-        .call()
-    )
-
-    persist_station_year_weather = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_station_year_weather")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filetype="parquet",
-            **(params.get("persist_station_year_weather") or {}),
-        )
-        .mapvalues(argnames=["filename", "df"], argvalues=weather_station_year_split)
     )
 
     survey_min_date = (

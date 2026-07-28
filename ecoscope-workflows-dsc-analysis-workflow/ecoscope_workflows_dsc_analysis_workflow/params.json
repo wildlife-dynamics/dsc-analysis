@@ -75,35 +75,6 @@
       "type": "object",
       "title": "Configure Google Earth Engine"
     },
-    "weather_er_client": {
-      "additionalProperties": false,
-      "properties": {
-        "data_source": {
-          "$ref": "#/$defs/EarthRangerConnection",
-          "title": "",
-          "description": "Select one of your configured data sources."
-        }
-      },
-      "required": [
-        "data_source"
-      ],
-      "type": "object",
-      "title": "Configure Weather EarthRanger connection"
-    },
-    "weather_subject_group_name": {
-      "additionalProperties": false,
-      "properties": {
-        "var": {
-          "title": "",
-          "type": "string"
-        }
-      },
-      "required": [
-        "var"
-      ],
-      "type": "object",
-      "title": "Weather Station Subject Group Name"
-    },
     "connection_config": {
       "additionalProperties": false,
       "properties": {
@@ -164,19 +135,6 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
-    "EarthRangerConnection": {
-      "properties": {
-        "name": {
-          "title": "Data Source",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "EarthRangerConnection",
-      "type": "object"
-    },
     "ConnectionIdsEntry": {
       "properties": {
         "connection": {
@@ -208,6 +166,19 @@
       ],
       "title": "ConnectionIdsEntry",
       "type": "object"
+    },
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
     }
   },
   "uiSchema": {
@@ -229,8 +200,6 @@
       "workflow_details",
       "time_range",
       "gee_client",
-      "weather_er_client",
-      "weather_subject_group_name",
       "connection_config"
     ]
   },
