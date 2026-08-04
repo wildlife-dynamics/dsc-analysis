@@ -115,26 +115,28 @@ Once all parameters are configured, click **Submit**. For each survey the workfl
 9. Calculate the perpendicular distance from each observer position to the transect centreline (`off_transect_dist`).
 10. Estimate the true animal position from each observation's radial angle and distance to centre (`dist_to_centre`).
 11. Calculate the orthogonal distance from the estimated animal position to the transect centreline (`ortho_dist`).
-12. Filter events to those that intersect a 500 m transect buffer corridor; discard unvisited transects.
+12. Filter events to those that intersect a 500 m transect buffer corridor (rounded end caps); discard unvisited transects — a transect with a patrol "conducted" marker but no wildlife sightings still counts as visited.
 13. Label visited transects with mean HLS NDVI (max 30 % cloud cover), terrain slope, and PALSAR woody cover (dry-season composite) from Google Earth Engine.
 14. Merge transect covariates into the wildlife observation dataset.
-15. Export all outputs per survey period to `$ECOSCOPE_WORKFLOWS_RESULTS`.
+15. Export all outputs per survey period to their type-specific subfolder under `$ECOSCOPE_WORKFLOWS_RESULTS`.
 
 ---
 
 ## Output Files
 
-All outputs are written to `$ECOSCOPE_WORKFLOWS_RESULTS/`. Six files are produced for **each survey period** — `{survey}_{period}` is replaced by the name of the EarthRanger site (subdomain) that survey's connection points to, followed by the detected activity period (e.g. `olaremotorogi_2026_02`).
+Outputs are written under `$ECOSCOPE_WORKFLOWS_RESULTS/`, organized into a subfolder per output type so files are pre-sorted for reviewers instead of landing flat in the results root. Six files are produced for **each survey period** — `{survey}_{period}` is replaced by the name of the EarthRanger site (subdomain) that survey's connection points to, followed by the detected activity period (e.g. `olaremotorogi_2026_02`).
 
-| File | Description |
-|------|-------------|
-| `{survey}_{period}_analysis_metadata.csv` | Survey metadata events: transect IDs, team members, observer counts, event types, lat/lon |
-| `{survey}_{period}_field_effort.csv` | Per-team-member daily field effort: `survey_date`, `id`, `name`, `team_size`, `distance` (km), `duration` (h), `man_hours` |
-| `{survey}_{period}_analysis_data.csv` | Wildlife observations with all distance sampling fields: species, total count, juveniles, `dist_to_centre`, `radialangle`, `off_transect_dist`, `ortho_dist`, estimated geometry, `NDVI_HSL`, `slope`, `survey_id`, and more |
-| `{survey}_{period}_events.gpkg` | Spatial point layer of wildlife observations (columns: `serial_number`, `transect_id`, `dist_to_centre`, `ortho_dist`, `intersects_transect`, `geometry`) |
-| `{survey}_{period}_transect_areas.gpkg` | Visited transect corridors (buffered polygons) in EPSG:4326 with `NDVI_HSL`, `slope`, `WoodyCover`, and `img_date_hsl_ndvi` columns |
-| `{survey}_{period}_transect_lines.gpkg` | Visited transect centrelines (unbuffered) in EPSG:4326 |
+| Subfolder | File | Description |
+|-----------|------|-------------|
+| `ER_Metadata/` | `{survey}_{period}_analysis_metadata.csv` | Survey metadata events: transect IDs, team members, observer counts, event types, lat/lon |
+| `ER_FieldEffort/` | `{survey}_{period}_field_effort.csv` | Per-team-member daily field effort: `survey_date`, `id`, `name`, `team_size`, `distance` (km), `duration` (h), `man_hours` |
+| `ER_AnalysisData/` | `{survey}_{period}_analysis_data.csv` | Wildlife observations with all distance sampling fields: species, total count, juveniles, `dist_to_centre`, `radialangle`, `off_transect_dist`, `ortho_dist`, estimated geometry, `NDVI_HSL`, `slope`, `survey_id`, and more |
+| `ER_Events/` | `{survey}_{period}_events.gpkg` | Spatial point layer of wildlife observations (columns: `serial_number`, `transect_id`, `dist_to_centre`, `ortho_dist`, `intersects_transect`, `geometry`) |
+| `ER_SurveyAreas/` | `{survey}_{period}_transect_areas.gpkg` | Visited transect corridors (buffered polygons) in EPSG:4326 with `NDVI_HSL`, `slope`, `WoodyCover`, and `img_date_hsl_ndvi` columns |
+| `ER_MasterTransects/` | `{survey}_{period}_transect_lines.gpkg` | Visited transect centrelines (unbuffered) in EPSG:4326 |
 
 > If a survey has no visited transects or no matching patrol events for a given period, that period's outputs are skipped gracefully rather than raising an error — other periods and surveys in the same run are unaffected.
+
+> A transect counts as "visited" — and so appears in `transect_areas.gpkg` / `transect_lines.gpkg` — if it has a patrol "conducted" marker event, a wildlife sighting, or both; a transect that was walked but had no sightings is no longer dropped from the output. `analysis_data.csv` and `events.gpkg` remain wildlife-sightings-only.
 
 > As of this revision, `WoodyCover` is labelled onto the transect corridors and appears in `{survey}_{period}_transect_areas.gpkg`, but is not yet included in the `{survey}_{period}_analysis_data.csv` column selection — only `NDVI_HSL` and `slope` are currently carried through to that file.

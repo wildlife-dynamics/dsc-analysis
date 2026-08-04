@@ -30,6 +30,9 @@ from ecoscope_workflows_ext_custom.tasks.transformation import (
     filter_row_values as filter_row_values,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    build_output_subfolder as build_output_subfolder,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     create_connection_configs_from_ids as create_connection_configs_from_ids,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
@@ -260,6 +263,132 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("gee_client") or {}))
+        .call()
+    )
+
+    analysis_data_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("analysis_data_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_AnalysisData",
+            **(params.get("analysis_data_folder") or {}),
+        )
+        .call()
+    )
+
+    metadata_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("metadata_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_Metadata",
+            **(params.get("metadata_folder") or {}),
+        )
+        .call()
+    )
+
+    field_effort_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("field_effort_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_FieldEffort",
+            **(params.get("field_effort_folder") or {}),
+        )
+        .call()
+    )
+
+    events_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("events_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_Events",
+            **(params.get("events_folder") or {}),
+        )
+        .call()
+    )
+
+    transect_areas_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("transect_areas_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_SurveyAreas",
+            **(params.get("transect_areas_folder") or {}),
+        )
+        .call()
+    )
+
+    transect_lines_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("transect_lines_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_MasterTransects",
+            **(params.get("transect_lines_folder") or {}),
+        )
         .call()
     )
 
@@ -858,7 +987,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=metadata_folder,
             filetype="csv",
             **(params.get("persist_survey_event_metadata") or {}),
         )
@@ -955,7 +1084,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=field_effort_folder,
             filetype="csv",
             **(params.get("persist_field_effort") or {}),
         )
@@ -1097,6 +1226,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "event_details__distancecountwildlife_species": "species",
                 "event_details__distancecountwildlife_totalcount": "totalcount",
                 "event_details__Transect_ID": "transect_id_v2",
+                "event_details__Transect ID": "transect_id_v2",
                 "event_details__Team_members": "Team Members",
                 "event_details__Number_of_observers": "num_observers",
                 "event_details__Number_of_Observers": "num_observers",
@@ -1253,7 +1383,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             column="event_type",
-            values=["distancecountwildlife_rep"],
+            values=[
+                "distancecountwildlife_rep",
+                "distancecountpatrol_rep",
+                "distance_count_patrol_metadata",
+            ],
             **(params.get("filter_wildlife_rep") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=ffill_patrol_events)
@@ -1667,7 +1801,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            cap_style="flat",
+            cap_style="round",
             single_sided=False,
             resolution=5,
             distance=500,
@@ -2119,6 +2253,27 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["df"], argvalues=filter_transect_columns)
     )
 
+    filter_wild_analysis = (
+        task(filter_row_values)
+        .validate()
+        .set_task_instance_id("filter_wild_analysis")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column="event_type",
+            values=["distancecountwildlife_rep"],
+            **(params.get("filter_wild_analysis") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=filter_intersecting_events)
+    )
+
     zip_patrol_transects_df = (
         task(groupbykey)
         .validate()
@@ -2133,7 +2288,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[filter_intersecting_events, exclude_geom],
+            iterables=[filter_wild_analysis, exclude_geom],
             **(params.get("zip_patrol_transects_df") or {}),
         )
         .call()
@@ -2264,7 +2419,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=analysis_data_folder,
             filetype="csv",
             **(params.get("persist_patrol_events_csv") or {}),
         )
@@ -2350,7 +2505,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=events_folder,
             filetype="gpkg",
             **(params.get("persist_patrol_events_gpkg") or {}),
         )
@@ -2429,7 +2584,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=transect_areas_folder,
             filetype="gpkg",
             **(params.get("persist_transects_gpkg") or {}),
         )
@@ -2546,7 +2701,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            root_path=transect_lines_folder,
             filetype="gpkg",
             **(params.get("persist_transect_lines_gpkg") or {}),
         )

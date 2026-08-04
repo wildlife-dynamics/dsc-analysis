@@ -13,9 +13,9 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.0.4.*"
+    version: "1.0.5.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
+    
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
@@ -52,6 +52,50 @@ workflow:
   - name: Configure Google Earth Engine
     id: gee_client
     task: set_gee_connection
+
+  # Output export folders -- each persist step below writes into one of these
+  # instead of the flat results root, so reviewers see files pre-sorted by type.
+  - name: Output folder for analysis data csv
+    id: analysis_data_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_AnalysisData
+
+  - name: Output folder for analysis metadata csv
+    id: metadata_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_Metadata
+
+  - name: Output folder for field effort csv
+    id: field_effort_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_FieldEffort
+
+  - name: Output folder for events gpkg
+    id: events_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_Events
+
+  - name: Output folder for transect areas gpkg
+    id: transect_areas_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_SurveyAreas
+
+  - name: Output folder for transect lines gpkg
+    id: transect_lines_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_MasterTransects
 
   - name: Configure EarthRanger and Survey Details
     id: connection_config
@@ -366,7 +410,7 @@ workflow:
     id: persist_survey_event_metadata
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.metadata_folder.return }}
       filetype: csv
     mapvalues:
       argnames:
@@ -422,7 +466,7 @@ workflow:
     id: persist_field_effort
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.field_effort_folder.return }}
       filetype: csv
     mapvalues:
       argnames:
@@ -508,6 +552,7 @@ workflow:
         "event_details__distancecountwildlife_species": "species",
         "event_details__distancecountwildlife_totalcount": "totalcount",
         "event_details__Transect_ID": "transect_id_v2",
+        "event_details__Transect ID": "transect_id_v2",
         "event_details__Team_members": "Team Members",
         "event_details__Number_of_observers": "num_observers",
         "event_details__Number_of_Observers": "num_observers",
@@ -589,15 +634,27 @@ workflow:
       argnames: df 
       argvalues: ${{ workflow.bfill_patrol_events.return }}
 
-  - name: Filter out distancecountwildlife_rep only 
-    id: filter_wildlife_rep 
-    task: filter_row_values 
+  # Keeps wildlife sightings and both "conducted" metadata marker event types --
+  # distancecountpatrol_rep (older survey rounds) and distance_count_patrol_metadata
+  # (the only type used from the 2026_05 round onward, confirmed via analysis_metadata:
+  # 100% of that round's events across mnc/naboisho/olaremotorogi/enonkishu/mbokishi
+  # are distance_count_patrol_metadata) -- mirrors the keep-list already used by
+  # filter_survey_events above for the analysis_metadata branch. Without this, a
+  # transect with a patrol but zero sightings has no event left downstream to test
+  # against the transect corridor (see filter_intersecting_events / visited_transects).
+  # analysis_data and events.gpkg stay sightings-only via the separate
+  # filter_wildlife_only_for_analysis step further down the DAG.
+  - name: Keep wildlife sighting and patrol (conducted-transect) events only
+    id: filter_wildlife_rep
+    task: filter_row_values
     partial:
-      column: event_type 
-      values: 
+      column: event_type
+      values:
         - distancecountwildlife_rep
-    mapvalues: 
-      argnames: df 
+        - distancecountpatrol_rep
+        - distance_count_patrol_metadata
+    mapvalues:
+      argnames: df
       argvalues: ${{ workflow.ffill_patrol_events.return }}
 
   - name: Extract other species from other notes 
@@ -817,15 +874,21 @@ workflow:
       argnames: transects 
       argvalues: ${{ workflow.merge_transects.return }}
 
-  - name: Buffer transects by 500 meters on each side with flat cap style and 5 meter resolution
-    id: buffer_transect_segments 
-    task: buffer_transects 
-    partial: 
-      cap_style: flat 
-      single_sided: false 
+  # cap_style: round (not flat) -- a flat cap terminates the corridor in a straight
+  # edge exactly at each transect's start/end point, excluding events recorded just
+  # before reaching / just after finishing the transect even when they're only a
+  # few meters away. Confirmed via debug diagnostics: excluded events consistently
+  # project to position 0 or line-length (i.e. clamped to an endpoint), not because
+  # they're actually far from the transect.
+  - name: Buffer transects by 500 meters on each side with round cap style and 5 meter resolution
+    id: buffer_transect_segments
+    task: buffer_transects
+    partial:
+      cap_style: round
+      single_sided: false
       resolution: 5
-      distance: 500 
-    mapvalues: 
+      distance: 500
+    mapvalues:
       argnames: transects 
       argvalues: ${{ workflow.simplify_tolerance.return }}
 
@@ -842,18 +905,18 @@ workflow:
         - ${{ workflow.exclude_neg_ortho_dist.return }}
         - ${{ workflow.buffer_transect_segments.return }}
 
-  - name: Filter events that intersect with transects 
-    id: filter_intersecting_events 
-    task: flag_events_intersecting_transect 
-    partial: 
+  - name: Filter events that intersect with transects
+    id: filter_intersecting_events
+    task: flag_events_intersecting_transect
+    partial:
       intersects_column: "intersects_transect"
       transect_id_column: "transect_id"
       transect_name_column: "name"
       index_column: "id"
-    mapvalues: 
-      argnames: 
-        - patrol_events 
-        - transects 
+    mapvalues:
+      argnames:
+        - patrol_events
+        - transects
       argvalues: ${{ workflow.zip_events_buff_trans.return }}
 
   - name: Zip filtered events with buffered transects for visited-transect filter
@@ -1089,6 +1152,20 @@ workflow:
       argnames: df 
       argvalues: ${{ workflow.filter_transect_columns.return }}
 
+  # analysis_data / events.gpkg stay wildlife-sightings-only: filter_intersecting_events
+  # now also carries distancecountpatrol_rep "conducted" markers (kept upstream so
+  # they count toward visited_transects), which don't belong in the sightings export.
+  - name: Keep only wildlife sightings for analysis_data / events export
+    id: filter_wild_analysis
+    task: filter_row_values
+    partial:
+      column: event_type
+      values:
+        - distancecountwildlife_rep
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.filter_intersecting_events.return }}
+
   - name: Zip patrols df and transects df
     id: zip_patrol_transects_df
     skipif:
@@ -1099,7 +1176,7 @@ workflow:
     task: groupbykey
     partial:
       iterables:
-        - ${{ workflow.filter_intersecting_events.return }}
+        - ${{ workflow.filter_wild_analysis.return }}
         - ${{ workflow.exclude_geom.return }}
 
   - name: Merge patrol events with transects 
@@ -1164,7 +1241,7 @@ workflow:
     id: persist_patrol_events_csv
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.analysis_data_folder.return }}
       filetype: csv
     mapvalues:
       argnames:
@@ -1211,7 +1288,7 @@ workflow:
     id: persist_patrol_events_gpkg
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.events_folder.return }}
       filetype: gpkg
     mapvalues:
       argnames:
@@ -1255,7 +1332,7 @@ workflow:
     id: persist_transects_gpkg
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.transect_areas_folder.return }}
       filetype: gpkg
     mapvalues:
       argnames:
@@ -1324,7 +1401,7 @@ workflow:
     id: persist_transect_lines_gpkg
     task: persist_df
     partial:
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      root_path: ${{ workflow.transect_lines_folder.return }}
       filetype: gpkg
     mapvalues:
       argnames:

@@ -503,10 +503,10 @@
     <li>Calculate the perpendicular distance from each observer position to the transect centreline (<code>off_transect_dist</code>).</li>
     <li>Estimate the true animal position from each observation's radial angle and distance to centre (<code>dist_to_centre</code>).</li>
     <li>Calculate the orthogonal distance from the estimated animal position to the transect centreline (<code>ortho_dist</code>).</li>
-    <li>Filter events to those that intersect a 500 m transect buffer corridor; discard unvisited transects.</li>
+    <li>Filter events to those that intersect a 500 m transect buffer corridor (rounded end caps); discard unvisited transects — a transect with a patrol "conducted" marker but no wildlife sightings still counts as visited.</li>
     <li>Label visited transects with mean HLS NDVI (max 30 % cloud cover), terrain slope, and PALSAR woody cover (dry-season composite) from Google Earth Engine.</li>
     <li>Merge transect covariates into the wildlife observation dataset.</li>
-    <li>Export all outputs per survey period to <code>$ECOSCOPE_WORKFLOWS_RESULTS</code>.</li>
+    <li>Export all outputs per survey period to their type-specific subfolder under <code>$ECOSCOPE_WORKFLOWS_RESULTS</code>.</li>
   </ol>
 
   <hr />
@@ -515,8 +515,10 @@
   <h2>Output Files</h2>
 
   <p>
-    All outputs are written to <code>$ECOSCOPE_WORKFLOWS_RESULTS/</code>. Six files are produced for
-    <strong>each survey period</strong> — <code>{survey}_{period}</code> is replaced by the name of
+    Outputs are written under <code>$ECOSCOPE_WORKFLOWS_RESULTS/</code>, organized into a subfolder
+    per output type so files are pre-sorted for reviewers instead of landing flat in the results
+    root. Six files are produced for <strong>each survey period</strong> —
+    <code>{survey}_{period}</code> is replaced by the name of
     the EarthRanger site (subdomain) that survey's connection points to, followed by the detected
     activity period (e.g. <code>olaremotorogi_2026_02</code>).
   </p>
@@ -525,14 +527,14 @@
     <div class="output-item">
       <div class="output-icon">📄</div>
       <div>
-        <div class="output-file">{survey}_{period}_analysis_metadata.csv</div>
+        <div class="output-file">ER_Metadata/{survey}_{period}_analysis_metadata.csv</div>
         <div class="output-desc">Survey metadata events: transect IDs, team members, observer counts, event types, lat/lon</div>
       </div>
     </div>
     <div class="output-item">
       <div class="output-icon">🧭</div>
       <div>
-        <div class="output-file">{survey}_{period}_field_effort.csv</div>
+        <div class="output-file">ER_FieldEffort/{survey}_{period}_field_effort.csv</div>
         <div class="output-desc">
           Per-team-member daily field effort. Columns:
           <code>survey_date</code>, <code>id</code>, <code>name</code>, <code>team_size</code>,
@@ -543,7 +545,7 @@
     <div class="output-item">
       <div class="output-icon">📊</div>
       <div>
-        <div class="output-file">{survey}_{period}_analysis_data.csv</div>
+        <div class="output-file">ER_AnalysisData/{survey}_{period}_analysis_data.csv</div>
         <div class="output-desc">
           Wildlife observations with all distance sampling fields: species, total count, juveniles,
           <code>dist_to_centre</code>, <code>radialangle</code>, <code>off_transect_dist</code>,
@@ -555,7 +557,7 @@
     <div class="output-item">
       <div class="output-icon">📍</div>
       <div>
-        <div class="output-file">{survey}_{period}_events.gpkg</div>
+        <div class="output-file">ER_Events/{survey}_{period}_events.gpkg</div>
         <div class="output-desc">
           Spatial point layer of wildlife observations.
           Columns: <code>serial_number</code>, <code>transect_id</code>,
@@ -567,7 +569,7 @@
     <div class="output-item">
       <div class="output-icon">🗺️</div>
       <div>
-        <div class="output-file">{survey}_{period}_transect_areas.gpkg</div>
+        <div class="output-file">ER_SurveyAreas/{survey}_{period}_transect_areas.gpkg</div>
         <div class="output-desc">
           Visited transect corridors (buffered polygons) in EPSG:4326 with <code>NDVI_HSL</code>,
           <code>slope</code>, <code>WoodyCover</code>, and <code>img_date_hsl_ndvi</code> columns
@@ -577,7 +579,7 @@
     <div class="output-item">
       <div class="output-icon">📐</div>
       <div>
-        <div class="output-file">{survey}_{period}_transect_lines.gpkg</div>
+        <div class="output-file">ER_MasterTransects/{survey}_{period}_transect_lines.gpkg</div>
         <div class="output-desc">Visited transect centrelines (unbuffered) in EPSG:4326</div>
       </div>
     </div>
@@ -587,6 +589,14 @@
     <strong>Note:</strong> If a survey has no visited transects or no matching patrol events for a
     given period, that period's outputs are skipped gracefully rather than raising an error —
     other periods and surveys in the same run are unaffected.
+  </div>
+
+  <div class="callout">
+    <strong>Note:</strong> A transect counts as "visited" — and so appears in
+    <code>transect_areas.gpkg</code> / <code>transect_lines.gpkg</code> — if it has a patrol
+    "conducted" marker event, a wildlife sighting, or both; a transect that was walked but had no
+    sightings is no longer dropped from the output. <code>analysis_data.csv</code> and
+    <code>events.gpkg</code> remain wildlife-sightings-only.
   </div>
 
   <div class="callout">

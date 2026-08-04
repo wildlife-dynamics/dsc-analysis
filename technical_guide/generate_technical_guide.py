@@ -199,7 +199,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0", "ecoscope-workflows"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*",  "ecoscope-workflows-custom"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.3.*", "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.5.*", "ecoscope-workflows-custom"],
             ["pydeck",                                  "0.9.2", "conda-forge"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0", "conda-forge"],
         ],
@@ -415,14 +415,24 @@ story += [
              "Backward- then forward-fill transect_id and num_observers "
              "within each patrol (group_col: patrol_serial_number) to propagate "
              "metadata event values to wildlife observation rows"],
-            ["8", "filter_row_values (distancecountwildlife_rep)",
-             "Retain only wildlife observation events after fill propagation"],
+            ["8", "filter_row_values (wildlife sightings + patrol \"conducted\" markers)",
+             "Retain distancecountwildlife_rep, distancecountpatrol_rep, and "
+             "distance_count_patrol_metadata after fill propagation. The two patrol "
+             "marker types are kept alongside sightings so that a transect with a "
+             "patrol but zero sightings still has a row to test against the transect "
+             "corridor downstream (Section 6.3) — without this, that transect would "
+             "never be flagged as visited"],
             ["9", "add_constant_column (survey_id)",
              "Stamp each row with the survey+period base name (e.g. olaremotorogi_2026_02) "
              "as a survey_id identifier"],
         ],
         [1.5*cm, 4.5*cm, W - 6*cm],
     ),
+    note("A later step, filter_row_values (distancecountwildlife_rep only) — Section "
+         "6.3 — narrows back down to sightings-only immediately before the merge that "
+         "feeds analysis_data.csv / events.gpkg. The patrol marker rows are only ever "
+         "needed to establish which transects were visited; they do not appear in "
+         "either of those two exports."),
     sp(6),
     h2("5.3  Field name mapping"),
     p("The <b>map_columns</b> step in the wildlife observation branch renames "
@@ -438,7 +448,8 @@ story += [
             ["event_details__distancecountwildlife_radialangle",       "radialangle"],
             ["event_details__distancecountwildlife_species",           "species"],
             ["event_details__distancecountwildlife_totalcount",        "totalcount"],
-            ["event_details__Transect_ID  (alt. form)",               "transect_id"],
+            ["event_details__Transect_ID  (alt. form, underscore)",    "transect_id_v2"],
+            ["event_details__Transect ID  (alt. form, space)",         "transect_id_v2"],
             ["event_details__Team_members (alt. form)",                "Team Members"],
             ["event_details__Number_of_observers (alt. form)",         "num_observers"],
         ],
@@ -446,8 +457,15 @@ story += [
     ),
     note("The mapping includes both the snake_case EarthRanger internal names and "
          "alternative title-case forms to handle variation across EarthRanger "
-         "server configurations. raise_if_not_found is set to false so that "
-         "missing columns are silently ignored."),
+         "server configurations — including servers that render the field label "
+         "with a literal space (\"Transect ID\") rather than an underscore. "
+         "raise_if_not_found is set to false so that missing columns are silently "
+         "ignored."),
+    note("Both alt-form transect ID fields land in transect_id_v2, a separate column "
+         "from transect_id (populated by the distancecountpatrol_transectid mapping "
+         "above). A following map_columns step (\"Normalize transect_id column name "
+         "across schemas\") renames transect_id_v2 → transect_id so both schemas "
+         "converge on one column before the parse/lowercase/fill steps below run."),
     sp(6),
     h2("5.4  Field effort computation"),
     p("In parallel with the metadata and wildlife observation branches, "
@@ -517,12 +535,20 @@ story += [
              "Reduce transect vertex count while preserving shape — "
              "improves intersection performance"],
             ["3", "buffer_transects",
-             "distance: 500 m, cap_style: flat, single_sided: false, resolution: 5",
+             "distance: 500 m, cap_style: round, single_sided: false, resolution: 5",
              "Create a 500 m bilateral corridor around each transect for "
              "event intersection testing"],
         ],
         [1.5*cm, 4*cm, 4*cm, W - 9.5*cm],
     ),
+    note("cap_style is round rather than flat. A flat cap terminates the corridor in "
+         "a straight edge exactly at each transect's start/end point, which excluded "
+         "events recorded just before reaching or just after finishing the transect "
+         "even when they were only a few metres away — diagnostics showed the "
+         "excluded events consistently projected to position 0 or line-length on the "
+         "transect (i.e. clamped to an endpoint), not because they were actually far "
+         "from it. The round cap extends the corridor in an arc past each endpoint "
+         "instead, capturing those near-endpoint events."),
     sp(6),
     h2("6.3  Event–transect intersection filter"),
     p("Wildlife observation events are tested against the buffered transect corridors "
@@ -533,7 +559,22 @@ story += [
     sp(4),
     p("Only transects visited by at least one intersecting event are retained for "
       "the final output via <b>filter_visited_transects</b>. This removes "
-      "transects that were planned but not walked during the survey period."),
+      "transects that were planned but not walked during the survey period. Because "
+      "the upstream filter (Section 5.2, step 8) now keeps patrol \"conducted\" "
+      "marker events alongside wildlife sightings, a transect that was walked but "
+      "had zero sightings still has an intersecting event here and is retained as "
+      "visited — it would previously have been dropped."),
+    sp(4),
+    p("The patrol marker rows carried through <b>flag_events_intersecting_transect</b> "
+      "exist only to establish visited status and do not belong in the wildlife "
+      "observation exports. Downstream of transect labeling, a dedicated "
+      "<b>filter_row_values</b> step (\"Keep only wildlife sightings for "
+      "analysis_data / events export\", id: <b>filter_wild_analysis</b>) re-filters "
+      "the same <b>flag_events_intersecting_transect</b> output back down to "
+      "<b>distancecountwildlife_rep</b> only, before it is paired with the labelled "
+      "transects and merged (Section 9). This keeps analysis_data.csv and "
+      "events.gpkg wildlife-sightings-only while still letting patrol-only "
+      "transects surface in transect_areas.gpkg / transect_lines.gpkg."),
     sp(6),
     h2("6.4  Re-projection to EPSG:4326 for export"),
     p("After intersection filtering, visited transects are reprojected back to "
@@ -698,39 +739,44 @@ story += [
 story += [
     h1("9. Output Files"),
     hr(),
-    p("All outputs are written to <b>$ECOSCOPE_WORKFLOWS_RESULTS</b>. "
+    p("All outputs are written under <b>$ECOSCOPE_WORKFLOWS_RESULTS</b>, into a "
+      "dedicated subfolder per output type rather than the flat results root, so "
+      "reviewers see files pre-sorted by type. Each subfolder is constructed once "
+      "per run via <b>build_output_subfolder</b> (root_path: "
+      "$ECOSCOPE_WORKFLOWS_RESULTS, subfolder: &lt;name&gt;) and its return value "
+      "is used as the root_path for the corresponding persist_df step. "
       "Six file sets are produced for each survey period. "
       "{survey} is the survey name defined in the connection config and {period} "
       "is the detected activity period label (e.g. 2026_02)."),
     sp(6),
     make_table(
         [
-            ["File", "Format", "Description"],
-            ["{survey}_{period}_analysis_metadata.csv", "CSV",
+            ["Subfolder", "File", "Format", "Description"],
+            ["ER_Metadata/", "{survey}_{period}_analysis_metadata.csv", "CSV",
              "Survey metadata events: transect IDs, team members, observer counts, "
              "event types, lat/lon"],
-            ["{survey}_{period}_field_effort.csv", "CSV",
+            ["ER_FieldEffort/", "{survey}_{period}_field_effort.csv", "CSV",
              "Per-team-member daily field effort: survey_date, id, name, team_size, "
              "distance (km), duration (h), man_hours"],
-            ["{survey}_{period}_analysis_data.csv", "CSV",
+            ["ER_AnalysisData/", "{survey}_{period}_analysis_data.csv", "CSV",
              "Wildlife observation events with all distance sampling fields: "
              "species, totalcount, num_juveniles, dist_to_centre, radialangle, "
              "off_transect_dist, ortho_dist, survey_id, orig_geometry (WKT), "
              "estimated geometry (WKT), NDVI_HSL, slope, img_date_hsl_ndvi, "
              "intersects_transect, transect_id, num_observers, time, "
              "serial_number, patrol_id, patrol_serial_number"],
-            ["{survey}_{period}_events.gpkg", "GeoPackage",
+            ["ER_Events/", "{survey}_{period}_events.gpkg", "GeoPackage",
              "Spatial point layer of wildlife observations. Columns: serial_number, "
              "transect_id, dist_to_centre, ortho_dist, intersects_transect, geometry"],
-            ["{survey}_{period}_transect_areas.gpkg", "GeoPackage",
+            ["ER_SurveyAreas/", "{survey}_{period}_transect_areas.gpkg", "GeoPackage",
              "Visited transect corridors — buffered polygons (EPSG:4326) with "
              "environmental covariates: name, img_date_hsl_ndvi, NDVI_HSL, slope, "
              "WoodyCover, geometry"],
-            ["{survey}_{period}_transect_lines.gpkg", "GeoPackage",
+            ["ER_MasterTransects/", "{survey}_{period}_transect_lines.gpkg", "GeoPackage",
              "Visited transect centrelines — unbuffered lines (EPSG:4326), the same "
              "visited subset as transect_areas but without environmental covariates"],
         ],
-        [5.5*cm, 2.5*cm, W - 8*cm],
+        [3*cm, 5*cm, 2*cm, W - 10*cm],
     ),
     sp(6),
     note("The _events GeoPackage contains a subset of columns optimised for "
@@ -739,6 +785,10 @@ story += [
          "distance sampling density estimation models. If a survey period has no "
          "visited transects or no field-effort GPS data, the corresponding file(s) "
          "for that period are simply not produced rather than raising an error."),
+    note("Visited transects now include those with a patrol \"conducted\" marker "
+         "event and zero wildlife sightings (Section 6.3) — such transects appear "
+         "in _transect_areas.gpkg / _transect_lines.gpkg but contribute no rows to "
+         "_analysis_data.csv / _events.gpkg, which stay wildlife-sightings-only."),
     note("WoodyCover is labelled onto transects and appears in _transect_areas.gpkg "
          "(Section 8.5), but as of this revision it is not included in the "
          "_analysis_data.csv column list above — only NDVI_HSL and slope are currently "
@@ -834,6 +884,11 @@ story += [
         ],
         [4*cm, W - 4*cm],
     ),
+    note("The constructed filename is combined with the output's dedicated "
+         "subfolder (Section 9) — built once per run via build_output_subfolder — "
+         "at the persist_df step for that output, so each file lands in "
+         "$ECOSCOPE_WORKFLOWS_RESULTS/&lt;subfolder&gt;/&lt;filename&gt; rather "
+         "than directly under $ECOSCOPE_WORKFLOWS_RESULTS."),
     sp(6),
     h2("10.5  Fill propagation for metadata fields"),
     p("Patrol events in EarthRanger are recorded sequentially: a metadata event "
@@ -871,7 +926,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.3.*"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.5.*"],
             ["pydeck",                                  "0.9.2"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0"],
         ],
