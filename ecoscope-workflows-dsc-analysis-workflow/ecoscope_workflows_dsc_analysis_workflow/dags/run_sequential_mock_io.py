@@ -1801,7 +1801,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            cap_style="round",
+            cap_style="flat",
             single_sided=False,
             resolution=5,
             distance=500,

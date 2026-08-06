@@ -880,11 +880,11 @@ workflow:
   # few meters away. Confirmed via debug diagnostics: excluded events consistently
   # project to position 0 or line-length (i.e. clamped to an endpoint), not because
   # they're actually far from the transect.
-  - name: Buffer transects by 500 meters on each side with round cap style and 5 meter resolution
+  - name: Buffer transects by 500 meters on each side
     id: buffer_transect_segments
     task: buffer_transects
     partial:
-      cap_style: round
+      cap_style: flat
       single_sided: false
       resolution: 5
       distance: 500
