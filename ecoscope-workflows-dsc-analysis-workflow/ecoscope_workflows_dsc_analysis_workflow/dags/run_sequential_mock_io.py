@@ -163,10 +163,7 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     ffill_within_patrols as ffill_within_patrols,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    filter_transect_lines_by_visited as filter_transect_lines_by_visited,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    filter_visited_transects as filter_visited_transects,
+    filter_transects_by_metadata as filter_transects_by_metadata,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     flag_events_intersecting_transect as flag_events_intersecting_transect,
@@ -1855,10 +1852,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
     )
 
-    zip_filtered_events_trans = (
+    zip_areas_metadata = (
         task(groupbykey)
         .validate()
-        .set_task_instance_id("zip_filtered_events_trans")
+        .set_task_instance_id("zip_areas_metadata")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -1869,16 +1866,16 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[filter_intersecting_events, buffer_transect_segments],
-            **(params.get("zip_filtered_events_trans") or {}),
+            iterables=[buffer_transect_segments, drop_null_cols],
+            **(params.get("zip_areas_metadata") or {}),
         )
         .call()
     )
 
-    visited_transects = (
-        task(filter_visited_transects)
+    filter_areas_by_metadata = (
+        task(filter_transects_by_metadata)
         .validate()
-        .set_task_instance_id("visited_transects")
+        .set_task_instance_id("filter_areas_by_metadata")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -1889,14 +1886,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            intersects_column="intersects_transect",
-            transect_id_column="transect_id",
-            transect_name_column="name",
-            **(params.get("visited_transects") or {}),
+            name_column="name",
+            metadata_id_column="Transect ID",
+            **(params.get("filter_areas_by_metadata") or {}),
         )
-        .mapvalues(
-            argnames=["patrol_events", "transects"], argvalues=zip_filtered_events_trans
-        )
+        .mapvalues(argnames=["transects", "metadata"], argvalues=zip_areas_metadata)
     )
 
     reproject_transects = (
@@ -1913,7 +1907,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(target_crs="epsg:4326", **(params.get("reproject_transects") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=visited_transects)
+        .mapvalues(argnames=["gdf"], argvalues=filter_areas_by_metadata)
     )
 
     survey_min_date = (
@@ -2074,6 +2068,26 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["aoi", "since"], argvalues=zip_aoi_min_date)
     )
 
+    zip_ndvi_transects = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("zip_ndvi_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+                any_keyed_iterables_are_skips,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[add_since_transects, hls_ndvi_image],
+            **(params.get("zip_ndvi_transects") or {}),
+        )
+        .call()
+    )
+
     label_ndvi_hsl = (
         task(label_features_with_image_stat)
         .validate()
@@ -2088,14 +2102,13 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            image=create_slope_image,
             out_column="NDVI_HSL",
             region_reducer=None,
             scale=30.0,
             reducer_key="mean",
             **(params.get("label_ndvi_hsl") or {}),
         )
-        .mapvalues(argnames=["gdf"], argvalues=add_since_transects)
+        .mapvalues(argnames=["gdf", "image"], argvalues=zip_ndvi_transects)
     )
 
     zip_ndvi_min_date = (
@@ -2591,10 +2604,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_transect_df)
     )
 
-    zip_lines_visited = (
+    zip_lines_metadata = (
         task(groupbykey)
         .validate()
-        .set_task_instance_id("zip_lines_visited")
+        .set_task_instance_id("zip_lines_metadata")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2605,16 +2618,16 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[simplify_tolerance, visited_transects],
-            **(params.get("zip_lines_visited") or {}),
+            iterables=[simplify_tolerance, drop_null_cols],
+            **(params.get("zip_lines_metadata") or {}),
         )
         .call()
     )
 
-    visited_transect_lines = (
-        task(filter_transect_lines_by_visited)
+    filter_lines_by_metadata = (
+        task(filter_transects_by_metadata)
         .validate()
-        .set_task_instance_id("visited_transect_lines")
+        .set_task_instance_id("filter_lines_by_metadata")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2624,8 +2637,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(name_column="name", **(params.get("visited_transect_lines") or {}))
-        .mapvalues(argnames=["lines", "visited"], argvalues=zip_lines_visited)
+        .partial(
+            name_column="name",
+            metadata_id_column="Transect ID",
+            **(params.get("filter_lines_by_metadata") or {}),
+        )
+        .mapvalues(argnames=["transects", "metadata"], argvalues=zip_lines_metadata)
     )
 
     reproject_transect_lines = (
@@ -2644,7 +2661,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             target_crs="epsg:4326", **(params.get("reproject_transect_lines") or {})
         )
-        .mapvalues(argnames=["gdf"], argvalues=visited_transect_lines)
+        .mapvalues(argnames=["gdf"], argvalues=filter_lines_by_metadata)
     )
 
     combine_transect_lines_gpkg_name = (

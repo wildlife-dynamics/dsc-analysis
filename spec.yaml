@@ -13,7 +13,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.0.6.*"
+    version: "1.0.7.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: pydeck
@@ -346,7 +346,7 @@ workflow:
       argvalues: ${{ workflow.parse_team_members.return }}
 
   - name: Drop columns with all null values 
-    id: drop_null_cols 
+    id: drop_null_cols #metadata table
     task: drop_null_columns 
     mapvalues: 
       argnames: df 
@@ -641,7 +641,7 @@ workflow:
   # are distance_count_patrol_metadata) -- mirrors the keep-list already used by
   # filter_survey_events above for the analysis_metadata branch. Without this, a
   # transect with a patrol but zero sightings has no event left downstream to test
-  # against the transect corridor (see filter_intersecting_events / visited_transects).
+  # against the transect corridor (see filter_intersecting_events).
   # analysis_data and events.gpkg stay sightings-only via the separate
   # filter_wildlife_only_for_analysis step further down the DAG.
   - name: Keep wildlife sighting and patrol (conducted-transect) events only
@@ -880,7 +880,7 @@ workflow:
   # few meters away. Confirmed via debug diagnostics: excluded events consistently
   # project to position 0 or line-length (i.e. clamped to an endpoint), not because
   # they're actually far from the transect.
-  - name: Buffer transects by 500 meters on each side
+  - name: Buffer transects by 500 meters on each side with round cap style and 5 meter resolution
     id: buffer_transect_segments
     task: buffer_transects
     partial:
@@ -919,8 +919,8 @@ workflow:
         - transects
       argvalues: ${{ workflow.zip_events_buff_trans.return }}
 
-  - name: Zip filtered events with buffered transects for visited-transect filter
-    id: zip_filtered_events_trans
+  - name: Zip buffered transects with period metadata for metadata-presence filter
+    id: zip_areas_metadata
     skipif:
       conditions:
         - any_dependency_skipped
@@ -929,21 +929,20 @@ workflow:
     task: groupbykey
     partial:
       iterables:
-        - ${{ workflow.filter_intersecting_events.return }}
         - ${{ workflow.buffer_transect_segments.return }}
-
-  - name: Keep only transects visited by at least one intersecting event
-    id: visited_transects
-    task: filter_visited_transects
+        - ${{ workflow.drop_null_cols.return }}
+        
+  - name: Keep only transects present in this period's metadata
+    id: filter_areas_by_metadata
+    task: filter_transects_by_metadata
     partial:
-      intersects_column: "intersects_transect"
-      transect_id_column: "transect_id"
-      transect_name_column: "name"
+      name_column: "name"
+      metadata_id_column: "Transect ID"
     mapvalues:
       argnames:
-        - patrol_events
         - transects
-      argvalues: ${{ workflow.zip_filtered_events_trans.return }}
+        - metadata
+      argvalues: ${{ workflow.zip_areas_metadata.return }}
 
   - name: Convert transects gdf back to epsg:4326 for export and labeling with imagery
     id: reproject_transects
@@ -952,7 +951,7 @@ workflow:
       target_crs: "epsg:4326"
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.visited_transects.return }}
+      argvalues: ${{ workflow.filter_areas_by_metadata.return }}
 
   - name: Get survey min date per period
     id: survey_min_date
@@ -1042,18 +1041,32 @@ workflow:
         - since
       argvalues: ${{ workflow.zip_aoi_min_date.return }}
 
-  - name: Add NDVI_HSL column to transects column 
-    id: label_ndvi_hsl 
+  - name: Zip transects with hls ndvi image
+    id: zip_ndvi_transects
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.add_since_transects.return }}
+        - ${{ workflow.hls_ndvi_image.return }}
+
+  - name: Add NDVI_HSL column to transects column
+    id: label_ndvi_hsl
     task: label_features_with_image_stat
-    partial: 
-      image: ${{ workflow.create_slope_image.return }}
+    partial:
       out_column: "NDVI_HSL"
-      region_reducer: null 
-      scale: 30.0 
-      reducer_key: mean 
-    mapvalues: 
-      argnames: gdf 
-      argvalues:  ${{ workflow.add_since_transects.return }}
+      region_reducer: null
+      scale: 30.0
+      reducer_key: mean
+    mapvalues:
+      argnames:
+        - gdf
+        - image
+      argvalues: ${{ workflow.zip_ndvi_transects.return }}
   
   - name: Zip ndvi df with survey min date
     id: zip_ndvi_min_date
@@ -1154,7 +1167,8 @@ workflow:
 
   # analysis_data / events.gpkg stay wildlife-sightings-only: filter_intersecting_events
   # now also carries distancecountpatrol_rep "conducted" markers (kept upstream so
-  # they count toward visited_transects), which don't belong in the sightings export.
+  # every conducted transect has an event to test against the corridor), which
+  # don't belong in the sightings export.
   - name: Keep only wildlife sightings for analysis_data / events export
     id: filter_wild_analysis
     task: filter_row_values
@@ -1340,10 +1354,10 @@ workflow:
         - df
       argvalues: ${{ workflow.zip_filename_transect_df.return }}
 
-  # Transect lines: the same visited subset as "transect_areas" above, but with
-  # the simplified line geometry (pre-buffering) instead of the buffered polygon.
-  - name: Zip transect lines with visited transects
-    id: zip_lines_visited
+  # Transect lines: the same metadata-present subset as "transect_areas" above, but
+  # with the simplified line geometry (pre-buffering) instead of the buffered polygon.
+  - name: Zip simplified transect lines with period metadata for metadata-presence filter
+    id: zip_lines_metadata
     skipif:
       conditions:
         - any_dependency_skipped
@@ -1353,18 +1367,19 @@ workflow:
     partial:
       iterables:
         - ${{ workflow.simplify_tolerance.return }}
-        - ${{ workflow.visited_transects.return }}
+        - ${{ workflow.drop_null_cols.return }}
 
-  - name: Filter transect lines to only visited transects
-    id: visited_transect_lines
-    task: filter_transect_lines_by_visited
-    partial: 
-      name_column: name
+  - name: Keep only transect lines present in this period's metadata
+    id: filter_lines_by_metadata
+    task: filter_transects_by_metadata
+    partial:
+      name_column: "name"
+      metadata_id_column: "Transect ID"
     mapvalues:
       argnames:
-        - lines
-        - visited
-      argvalues: ${{ workflow.zip_lines_visited.return }}
+        - transects
+        - metadata
+      argvalues: ${{ workflow.zip_lines_metadata.return }}
 
   - name: Reproject transect lines back to epsg:4326 for export
     id: reproject_transect_lines
@@ -1373,7 +1388,7 @@ workflow:
       target_crs: "epsg:4326"
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.visited_transect_lines.return }}
+      argvalues: ${{ workflow.filter_lines_by_metadata.return }}
 
   - name: Combine survey name with transect lines for gpkg filename
     id: combine_transect_lines_gpkg_name
