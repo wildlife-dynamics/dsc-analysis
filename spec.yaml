@@ -88,14 +88,14 @@ workflow:
     task: build_output_subfolder
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      subfolder: ER_SurveyAreas
+      subfolder: ER_TransectAreas
 
   - name: Output folder for transect lines gpkg
     id: transect_lines_folder
     task: build_output_subfolder
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      subfolder: ER_MasterTransects
+      subfolder: ER_TransectLines
 
   - name: Configure EarthRanger and Survey Details
     id: connection_config

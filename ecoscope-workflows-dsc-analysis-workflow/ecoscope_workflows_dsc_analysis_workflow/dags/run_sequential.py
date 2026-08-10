@@ -348,7 +348,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_SurveyAreas",
+            subfolder="ER_TransectAreas",
             **(params.get("transect_areas_folder") or {}),
         )
         .call()
@@ -369,7 +369,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_MasterTransects",
+            subfolder="ER_TransectLines",
             **(params.get("transect_lines_folder") or {}),
         )
         .call()
