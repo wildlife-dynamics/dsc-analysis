@@ -562,6 +562,16 @@ workflow:
         "event_details__Number of Juveniles":"num_juveniles",
         "event_details__Radial Angle":"radialangle",
         "event_details__Distance to Centre (m)":"dist_to_centre",
+
+        # add this for test 
+        "event_details__transect_id" : "transect_id",
+        "event_details__team_members": "Team Members",
+        "event_details__number_of_observers":  "num_observers",
+        "event_details__species" : "species",
+        "event_details__total_count": "totalcount",
+        "event_details__radial_angle": "radialangle",
+        "event_details__number_of_juveniles": "num_juveniles",
+        "event_details__distance_to_centre_m": "dist_to_centre",
       }
     mapvalues:
       argnames: df
