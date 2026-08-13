@@ -6,7 +6,7 @@
 ```yaml
 # fingerprint:
 artifacts_sha256_basic: a6eabd3b02ab111f3d996550d08e84826a2b2462b8f4badf65427563bb7c6a36
-artifacts_sha256_strict: 93c311cab0a9abbfa8f2c3bf8d88c82f40212f0761c1b190ece69de82b4cbdda
+artifacts_sha256_strict: b2e6bf8ad07a637d3886fc23ccd0115a5bc5038cb4f4aebfb1f30c483891a367
 installed_requirements:
 - channel: https://repo.prefix.dev/ecoscope-workflows/
   name: ecoscope-platform
@@ -19,7 +19,7 @@ installed_requirements:
   version: {version: ==0.0.0rc1}
 - channel: https://repo.prefix.dev/ecoscope-workflows-custom/
   name: ecoscope-workflows-ext-distance-sample-counts
-  version: {version: ==1.0.7}
+  version: {version: ==1.0.10}
 - channel: conda-forge
   name: pydeck
   version: {version: ==0.9.2}
