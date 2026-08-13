@@ -1382,6 +1382,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             column="event_type",
             values=[
                 "distancecountwildlife_rep",
+                "distance_count_wildlife_sighting",
                 "distancecountpatrol_rep",
                 "distance_count_patrol_metadata",
             ],
@@ -2281,7 +2282,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             column="event_type",
-            values=["distancecountwildlife_rep"],
+            values=["distancecountwildlife_rep", "distance_count_wildlife_sighting"],
             **(params.get("filter_wild_analysis") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=filter_intersecting_events)

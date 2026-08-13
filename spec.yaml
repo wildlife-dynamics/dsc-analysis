@@ -651,6 +651,7 @@ workflow:
       column: event_type
       values:
         - distancecountwildlife_rep
+        - distance_count_wildlife_sighting
         - distancecountpatrol_rep
         - distance_count_patrol_metadata
     mapvalues:
@@ -1176,6 +1177,7 @@ workflow:
       column: event_type
       values:
         - distancecountwildlife_rep
+        - distance_count_wildlife_sighting
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.filter_intersecting_events.return }}
