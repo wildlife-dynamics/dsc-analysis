@@ -2,16 +2,32 @@
 import os
 from typing import Any
 
+from ecoscope.platform.tasks.analysis import (
+    dataframe_column_nunique as dataframe_column_nunique,
+)
+from ecoscope.platform.tasks.analysis import (
+    dataframe_column_sum as dataframe_column_sum,
+)
 from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.io import persist_df as persist_df
+from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
 from ecoscope.platform.tasks.results import (
-    create_text_widget_single_view as create_text_widget_single_view,
+    create_map_widget_single_view as create_map_widget_single_view,
 )
+from ecoscope.platform.tasks.results import (
+    create_single_value_widget_single_view as create_single_value_widget_single_view,
+)
+from ecoscope.platform.tasks.results import (
+    create_table_widget_single_view as create_table_widget_single_view,
+)
+from ecoscope.platform.tasks.results import draw_table as draw_table
 from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_views
+from ecoscope.platform.tasks.skip import all_geometry_are_none as all_geometry_are_none
 from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
@@ -25,6 +41,16 @@ from ecoscope.platform.tasks.transformation import (
 )
 from ecoscope_workflows_ext_custom.tasks.io import (
     process_events_details as process_events_details,
+)
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_geojson_layer as create_geojson_layer_1,
+)
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_scatterplot_layer as create_scatterplot_layer_1,
+)
+from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map_1
+from ecoscope_workflows_ext_custom.tasks.results import (
+    set_base_maps_pydeck as set_base_maps_pydeck,
 )
 from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
@@ -111,9 +137,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     buffer_transects as buffer_transects,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    collect_patrol_events_paths as collect_patrol_events_paths,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     collect_transects_paths as collect_transects_paths,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
@@ -144,9 +167,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     flag_events_intersecting_transect as flag_events_intersecting_transect,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    format_publish_paths as format_publish_paths,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     join_list_column as join_list_column,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
@@ -171,6 +191,12 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     simplify_transects as simplify_transects,
 )
 from ecoscope_workflows_ext_ste.tasks.filter import filter_rows as filter_rows
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    compute_view_state_from_gdf as compute_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    envelope_gdf as envelope_gdf,
+)
 from wt_contracts import validate as _validate
 from wt_task import task
 
@@ -228,7 +254,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(groupers=[], **(params.get("groupers") or {}))
+        .partial(
+            groupers=[{"index_name": "group_id"}, {"index_name": "period"}],
+            **(params.get("groupers") or {}),
+        )
         .call()
     )
 
@@ -1074,6 +1103,126 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_fe)
     )
 
+    total_distance_per_period = (
+        task(dataframe_column_sum)
+        .validate()
+        .set_task_instance_id("total_distance_per_period")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column_name="distance", **(params.get("total_distance_per_period") or {})
+        )
+        .mapvalues(argnames=["df"], argvalues=field_effort)
+    )
+
+    total_distance_sv_widgets = (
+        task(create_single_value_widget_single_view)
+        .validate()
+        .set_task_instance_id("total_distance_sv_widgets")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Total Distance Surveyed (km)",
+            decimal_places=1,
+            **(params.get("total_distance_sv_widgets") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_distance_per_period)
+    )
+
+    total_distance_grouped_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("total_distance_grouped_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=total_distance_sv_widgets,
+            **(params.get("total_distance_grouped_widget") or {}),
+        )
+        .call()
+    )
+
+    total_duration_per_period = (
+        task(dataframe_column_sum)
+        .validate()
+        .set_task_instance_id("total_duration_per_period")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column_name="duration", **(params.get("total_duration_per_period") or {})
+        )
+        .mapvalues(argnames=["df"], argvalues=field_effort)
+    )
+
+    total_effort_sv_widgets = (
+        task(create_single_value_widget_single_view)
+        .validate()
+        .set_task_instance_id("total_effort_sv_widgets")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Total Effort (hours)",
+            decimal_places=1,
+            **(params.get("total_effort_sv_widgets") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_duration_per_period)
+    )
+
+    total_effort_grouped_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("total_effort_grouped_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=total_effort_sv_widgets,
+            **(params.get("total_effort_grouped_widget") or {}),
+        )
+        .call()
+    )
+
     select_event_details = (
         task(select_columns)
         .validate()
@@ -1886,6 +2035,64 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("filter_areas_by_metadata") or {}),
         )
         .mapvalues(argnames=["transects", "metadata"], argvalues=zip_areas_metadata)
+    )
+
+    total_transects_per_period = (
+        task(dataframe_column_nunique)
+        .validate()
+        .set_task_instance_id("total_transects_per_period")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(column_name="name", **(params.get("total_transects_per_period") or {}))
+        .mapvalues(argnames=["df"], argvalues=filter_areas_by_metadata)
+    )
+
+    total_transects_sv_widgets = (
+        task(create_single_value_widget_single_view)
+        .validate()
+        .set_task_instance_id("total_transects_sv_widgets")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Number of Transects Surveyed",
+            decimal_places=0,
+            **(params.get("total_transects_sv_widgets") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_transects_per_period)
+    )
+
+    total_transects_grouped_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("total_transects_grouped_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=total_transects_sv_widgets,
+            **(params.get("total_transects_grouped_widget") or {}),
+        )
+        .call()
     )
 
     reproject_transects = (
@@ -2761,10 +2968,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    gather_patrol_events_paths = (
-        task(collect_patrol_events_paths)
+    select_analysis_table_cols = (
+        task(select_columns)
         .validate()
-        .set_task_instance_id("gather_patrol_events_paths")
+        .set_task_instance_id("select_analysis_table_cols")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2775,15 +2982,126 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_publish_paths, **(params.get("gather_patrol_events_paths") or {})
+            columns=[
+                "transect_id",
+                "level_1",
+                "title",
+                "patrol_id",
+                "patrol_serial_number",
+                "totalcount",
+                "num_juveniles",
+                "event_type",
+                "num_observers",
+                "dist_to_centre",
+                "species",
+                "other_species",
+                "time",
+                "serial_number",
+                "radialangle",
+                "survey_id",
+                "off_transect_dist",
+                "ortho_dist",
+                "intersects_transect",
+                "img_date_hsl_ndvi",
+                "NDVI_HSL",
+                "slope",
+            ],
+            raise_on_missing=False,
+            **(params.get("select_analysis_table_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=select_patrol_event_cols)
+    )
+
+    field_effort_table = (
+        task(draw_table)
+        .validate()
+        .set_task_instance_id("field_effort_table")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=None,
+            table_config={
+                "enable_sorting": True,
+                "enable_filtering": True,
+                "enable_download": True,
+            },
+            **(params.get("field_effort_table") or {}),
+        )
+        .mapvalues(argnames=["dataframe"], argvalues=field_effort)
+    )
+
+    field_effort_table_html = (
+        task(persist_text)
+        .validate()
+        .set_task_instance_id("field_effort_table_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="field_effort_table",
+            **(params.get("field_effort_table_html") or {}),
+        )
+        .mapvalues(argnames=["text"], argvalues=field_effort_table)
+    )
+
+    field_effort_table_single_views = (
+        task(create_table_widget_single_view)
+        .validate()
+        .set_task_instance_id("field_effort_table_single_views")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Field Effort",
+            **(params.get("field_effort_table_single_views") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=field_effort_table_html)
+    )
+
+    field_effort_table_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("field_effort_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=field_effort_table_single_views,
+            **(params.get("field_effort_table_widget") or {}),
         )
         .call()
     )
 
-    publish_paths_text = (
-        task(format_publish_paths)
+    analysis_data_table = (
+        task(draw_table)
         .validate()
-        .set_task_instance_id("publish_paths_text")
+        .set_task_instance_id("analysis_data_table")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2794,17 +3112,82 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            transects_paths=gather_transects_paths,
-            patrol_events_paths=gather_patrol_events_paths,
-            **(params.get("publish_paths_text") or {}),
+            columns=None,
+            table_config={
+                "enable_sorting": True,
+                "enable_filtering": True,
+                "enable_download": True,
+            },
+            **(params.get("analysis_data_table") or {}),
+        )
+        .mapvalues(argnames=["dataframe"], argvalues=select_analysis_table_cols)
+    )
+
+    analysis_data_table_html = (
+        task(persist_text)
+        .validate()
+        .set_task_instance_id("analysis_data_table_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="analysis_data_table",
+            **(params.get("analysis_data_table_html") or {}),
+        )
+        .mapvalues(argnames=["text"], argvalues=analysis_data_table)
+    )
+
+    analysis_data_table_single_views = (
+        task(create_table_widget_single_view)
+        .validate()
+        .set_task_instance_id("analysis_data_table_single_views")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Analysis Data",
+            **(params.get("analysis_data_table_single_views") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=analysis_data_table_html)
+    )
+
+    analysis_data_table_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("analysis_data_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=analysis_data_table_single_views,
+            **(params.get("analysis_data_table_widget") or {}),
         )
         .call()
     )
 
-    publish_paths_widget = (
-        task(create_text_widget_single_view)
+    metadata_table = (
+        task(draw_table)
         .validate()
-        .set_task_instance_id("publish_paths_widget")
+        .set_task_instance_id("metadata_table")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2815,9 +3198,366 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            title="Files ready to publish",
-            data=publish_paths_text,
-            **(params.get("publish_paths_widget") or {}),
+            columns=None,
+            table_config={
+                "enable_sorting": True,
+                "enable_filtering": True,
+                "enable_download": True,
+            },
+            **(params.get("metadata_table") or {}),
+        )
+        .mapvalues(argnames=["dataframe"], argvalues=drop_null_cols)
+    )
+
+    metadata_table_html = (
+        task(persist_text)
+        .validate()
+        .set_task_instance_id("metadata_table_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="metadata_table",
+            **(params.get("metadata_table_html") or {}),
+        )
+        .mapvalues(argnames=["text"], argvalues=metadata_table)
+    )
+
+    metadata_table_single_views = (
+        task(create_table_widget_single_view)
+        .validate()
+        .set_task_instance_id("metadata_table_single_views")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Survey Metadata", **(params.get("metadata_table_single_views") or {})
+        )
+        .map(argnames=["view", "data"], argvalues=metadata_table_html)
+    )
+
+    metadata_grouped_table_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("metadata_grouped_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=metadata_table_single_views,
+            **(params.get("metadata_grouped_table_widget") or {}),
+        )
+        .call()
+    )
+
+    base_map_defs = (
+        task(set_base_maps_pydeck)
+        .validate()
+        .set_task_instance_id("base_map_defs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("base_map_defs") or {}))
+        .call()
+    )
+
+    reproject_events_map = (
+        task(reproject_gdf)
+        .validate()
+        .set_task_instance_id("reproject_events_map")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(target_crs="epsg:4326", **(params.get("reproject_events_map") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=select_patrol_event_cols)
+    )
+
+    transect_areas_layer = (
+        task(create_geojson_layer_1)
+        .validate()
+        .set_task_instance_id("transect_areas_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+                all_geometry_are_none,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            data_url=None,
+            layer_style={
+                "filled": True,
+                "stroked": True,
+                "get_fill_color": [34, 139, 34],
+                "get_line_color": [34, 139, 34],
+                "get_line_width": 0.95,
+                "opacity": 0.55,
+            },
+            legend={
+                "title": "Legend",
+                "values": [{"label": "Transect Areas", "color": "#228b22"}],
+            },
+            **(params.get("transect_areas_layer") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=format_transect_names)
+    )
+
+    transect_lines_layer = (
+        task(create_geojson_layer_1)
+        .validate()
+        .set_task_instance_id("transect_lines_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+                all_geometry_are_none,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            data_url=None,
+            layer_style={
+                "filled": True,
+                "stroked": True,
+                "get_fill_color": [0, 0, 0],
+                "get_line_color": [0, 0, 0],
+                "get_line_width": 0.95,
+                "opacity": 0.55,
+            },
+            legend={
+                "title": "",
+                "values": [{"label": "Transect Lines", "color": "#000000"}],
+            },
+            **(params.get("transect_lines_layer") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=reproject_transect_lines)
+    )
+
+    events_point_layer = (
+        task(create_scatterplot_layer_1)
+        .validate()
+        .set_task_instance_id("events_point_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+                all_geometry_are_none,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            data_url=None,
+            layer_style={
+                "get_fill_color": [210, 105, 30],
+                "get_line_color": [210, 105, 30],
+                "get_line_width": 0.25,
+                "get_radius": 4,
+                "opacity": 0.75,
+                "stroked": True,
+            },
+            legend={"title": "", "values": [{"label": "Events", "color": "#d2691e"}]},
+            **(params.get("events_point_layer") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=reproject_events_map)
+    )
+
+    combined_survey_map_layers = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("combined_survey_map_layers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+                any_keyed_iterables_are_skips,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[transect_areas_layer, transect_lines_layer, events_point_layer],
+            **(params.get("combined_survey_map_layers") or {}),
+        )
+        .call()
+    )
+
+    zoom_to_envelope = (
+        task(envelope_gdf)
+        .validate()
+        .set_task_instance_id("zoom_to_envelope")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(expansion_factor=1.35, **(params.get("zoom_to_envelope") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=format_transect_names)
+    )
+
+    gdf_image_extent = (
+        task(compute_view_state_from_gdf)
+        .validate()
+        .set_task_instance_id("gdf_image_extent")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            pitch=0, bearing=0, max_zoom=15, **(params.get("gdf_image_extent") or {})
+        )
+        .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
+    )
+
+    zip_layers_with_viewstate = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("zip_layers_with_viewstate")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+                any_keyed_iterables_are_skips,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[combined_survey_map_layers, gdf_image_extent],
+            **(params.get("zip_layers_with_viewstate") or {}),
+        )
+        .call()
+    )
+
+    survey_overview_map = (
+        task(draw_map_1)
+        .validate()
+        .set_task_instance_id("survey_overview_map")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            tile_layers=base_map_defs,
+            legend_style={"placement": "bottom-right"},
+            static=False,
+            title=None,
+            max_zoom=10,
+            **(params.get("survey_overview_map") or {}),
+        )
+        .mapvalues(
+            argnames=["geo_layers", "view_state"], argvalues=zip_layers_with_viewstate
+        )
+    )
+
+    survey_overview_map_html = (
+        task(persist_text)
+        .validate()
+        .set_task_instance_id("survey_overview_map_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="survey_overview_map",
+            **(params.get("survey_overview_map_html") or {}),
+        )
+        .mapvalues(argnames=["text"], argvalues=survey_overview_map)
+    )
+
+    survey_overview_map_single_views = (
+        task(create_map_widget_single_view)
+        .validate()
+        .set_task_instance_id("survey_overview_map_single_views")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Survey Overview Map",
+            **(params.get("survey_overview_map_single_views") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=survey_overview_map_html)
+    )
+
+    survey_overview_map_widget = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("survey_overview_map_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=survey_overview_map_single_views,
+            **(params.get("survey_overview_map_widget") or {}),
         )
         .call()
     )
@@ -2837,7 +3577,15 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             details=workflow_details,
-            widgets=[],
+            widgets=[
+                total_distance_grouped_widget,
+                total_effort_grouped_widget,
+                total_transects_grouped_widget,
+                survey_overview_map_widget,
+                field_effort_table_widget,
+                metadata_grouped_table_widget,
+                analysis_data_table_widget,
+            ],
             time_range=time_range,
             groupers=groupers,
             **(params.get("overall_dashboard") or {}),

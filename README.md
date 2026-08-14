@@ -6,7 +6,7 @@ This guide walks you through configuring and running the Distance Sample Count (
 
 ## Overview
 
-The workflow supports **multiple surveys per run**. Each survey is automatically split into its **detected activity periods** — if a survey site was visited in, say, both February and June, the workflow produces two independent, period-tagged output sets instead of one combined one. For each survey period it produces:
+The workflow supports **multiple surveys per run**. Each survey is automatically split into its **detected activity periods** — if a survey site was visited in, say, both February and June, the workflow produces two independent, period-tagged output sets instead of one combined one. For each survey period it produces the six files below, plus a matching set of [interactive dashboard](#dashboard) views:
 
 - An **analysis metadata CSV** — survey event metadata including transect IDs, team members, observer counts, and event types
 - A **field effort CSV** — per-team-member daily distance travelled, duration, and man-hours, derived from EarthRanger GPS tracks
@@ -140,3 +140,21 @@ Outputs are written under `$ECOSCOPE_WORKFLOWS_RESULTS/`, organized into a subfo
 > A transect counts as "visited" — and so appears in `transect_areas.gpkg` / `transect_lines.gpkg` — if it has a patrol "conducted" marker event, a wildlife sighting, or both; a transect that was walked but had no sightings is no longer dropped from the output. `analysis_data.csv` and `events.gpkg` remain wildlife-sightings-only.
 
 > As of this revision, `WoodyCover` is labelled onto the transect corridors and appears in `{survey}_{period}_transect_areas.gpkg`, but is not yet included in the `{survey}_{period}_analysis_data.csv` column selection — only `NDVI_HSL` and `slope` are currently carried through to that file.
+
+---
+
+## Dashboard
+
+In addition to the files above, each run assembles an **interactive dashboard** — one set of views per survey period, selectable through the dashboard's grouper controls (survey, then period):
+
+| Widget | Type | Shows |
+|--------|------|-------|
+| Total Distance Surveyed (km) | Stat tile | Sum of field effort `distance` for the period |
+| Total Effort (hours) | Stat tile | Sum of field effort `duration` for the period |
+| Number of Transects Surveyed | Stat tile | Count of distinct transects present in the period |
+| Survey Overview Map | Map | Transect areas (buffered corridor), transect lines, and wildlife event points, auto-framed to the survey's extent |
+| Field Effort | Table | Sortable, filterable, downloadable copy of the field effort data |
+| Survey Metadata | Table | Sortable, filterable, downloadable copy of the analysis metadata |
+| Analysis Data | Table | Sortable, filterable, downloadable copy of the analysis data (geometry columns omitted) |
+
+> Earlier revisions of this workflow shipped with an empty dashboard — a "files ready to publish" widget was built but never attached to it. All seven widgets above are now wired in and populate automatically on every run.

@@ -13,9 +13,9 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.0.10.*"
+    version: "1.0.11.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-    
+
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
@@ -43,11 +43,13 @@ workflow:
     id: time_range
     task: set_time_range
 
-  - name: Set Groupers 
+  - name: Set Groupers
     id: groupers
     task: set_groupers
     partial:
-      groupers: []
+      groupers:
+        - index_name: group_id
+        - index_name: period
 
   - name: Configure Google Earth Engine
     id: gee_client
@@ -474,7 +476,60 @@ workflow:
         - df
       argvalues: ${{ workflow.zip_filename_fe.return }}
 
-  - name: Select event_details column from events and merge with patrols 
+  # Dashboard stat tiles: total surveyed distance and total effort, one value
+  # per (group_id, period), faceted on the dashboard via the group_id/period
+  # groupers set above.
+  - name: Sum surveyed distance per period
+    id: total_distance_per_period
+    task: dataframe_column_sum
+    partial:
+      column_name: distance
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.field_effort.return }}
+
+  - name: Create Total Distance stat widget per period
+    id: total_distance_sv_widgets
+    task: create_single_value_widget_single_view
+    partial:
+      title: "Total Distance Surveyed (km)"
+      decimal_places: 1
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.total_distance_per_period.return }}
+
+  - name: Merge per-period Total Distance widgets
+    id: total_distance_grouped_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.total_distance_sv_widgets.return }}
+
+  - name: Sum survey effort duration per period
+    id: total_duration_per_period
+    task: dataframe_column_sum
+    partial:
+      column_name: duration
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.field_effort.return }}
+
+  - name: Create Total Effort stat widget per period
+    id: total_effort_sv_widgets
+    task: create_single_value_widget_single_view
+    partial:
+      title: "Total Effort (hours)"
+      decimal_places: 1
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.total_duration_per_period.return }}
+
+  - name: Merge per-period Total Effort widgets
+    id: total_effort_grouped_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.total_effort_sv_widgets.return }}
+
+  - name: Select event_details column from events and merge with patrols
     id: select_event_details
     task: select_columns
     partial:
@@ -954,6 +1009,31 @@ workflow:
         - transects
         - metadata
       argvalues: ${{ workflow.zip_areas_metadata.return }}
+
+  - name: Count transects surveyed per period
+    id: total_transects_per_period
+    task: dataframe_column_nunique
+    partial:
+      column_name: name
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.filter_areas_by_metadata.return }}
+
+  - name: Create Total Transects stat widget per period
+    id: total_transects_sv_widgets
+    task: create_single_value_widget_single_view
+    partial:
+      title: "Number of Transects Surveyed"
+      decimal_places: 0
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.total_transects_per_period.return }}
+
+  - name: Merge per-period Total Transects widgets
+    id: total_transects_grouped_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.total_transects_sv_widgets.return }}
 
   - name: Convert transects gdf back to epsg:4326 for export and labeling with imagery
     id: reproject_transects
@@ -1457,32 +1537,334 @@ workflow:
     partial:
       zipped: ${{ workflow.zip_publish_paths.return }}
 
-  - name: Collect all persisted patrol events paths
-    id: gather_patrol_events_paths
-    task: collect_patrol_events_paths
-    partial:
-      zipped: ${{ workflow.zip_publish_paths.return }}
+  # Dashboard tables: render the three key exports (field effort, analysis
+  # data, metadata) as in-dashboard tables, one view per (group_id, period).
 
-  - name: Format publish file paths as text
-    id: publish_paths_text
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.format_publish_paths
+  - name: Select analysis data columns for table widget (drop geometry columns)
+    id: select_analysis_table_cols
+    task: select_columns
     partial:
-      transects_paths: ${{ workflow.gather_transects_paths.return }}
-      patrol_events_paths: ${{ workflow.gather_patrol_events_paths.return }}
+      columns: [
+        "transect_id", "level_1", "title",
+        "patrol_id", "patrol_serial_number",
+        "totalcount", "num_juveniles", "event_type",
+        "num_observers", "dist_to_centre",
+        "species", "other_species", "time", "serial_number",
+        "radialangle", "survey_id", "off_transect_dist",
+        "ortho_dist", "intersects_transect",
+        "img_date_hsl_ndvi", "NDVI_HSL", "slope"
+      ]
+      raise_on_missing: false
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.select_patrol_event_cols.return }}
 
-  - name: Create widget showing files ready to publish
-    id: publish_paths_widget
-    task: create_text_widget_single_view
+  - name: Draw field effort table
+    id: field_effort_table
+    task: draw_table
     partial:
-      title: "Files ready to publish"
-      data: ${{ workflow.publish_paths_text.return }}
+      columns: null
+      table_config: { enable_sorting: true, enable_filtering: true, enable_download: true }
+    mapvalues:
+      argnames: dataframe
+      argvalues: ${{ workflow.field_effort.return }}
+
+  - name: Persist field effort table html
+    id: field_effort_table_html
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: "field_effort_table"
+    mapvalues:
+      argnames: text
+      argvalues: ${{ workflow.field_effort_table.return }}
+
+  - name: Create Field Effort table widget per period
+    id: field_effort_table_single_views
+    task: create_table_widget_single_view
+    partial:
+      title: "Field Effort"
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.field_effort_table_html.return }}
+
+  - name: Merge per-period Field Effort table widgets
+    id: field_effort_table_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.field_effort_table_single_views.return }}
+
+  - name: Draw analysis data table
+    id: analysis_data_table
+    task: draw_table
+    partial:
+      columns: null
+      table_config: { enable_sorting: true, enable_filtering: true, enable_download: true }
+    mapvalues:
+      argnames: dataframe
+      argvalues: ${{ workflow.select_analysis_table_cols.return }}
+
+  - name: Persist analysis data table html
+    id: analysis_data_table_html
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: "analysis_data_table"
+    mapvalues:
+      argnames: text
+      argvalues: ${{ workflow.analysis_data_table.return }}
+
+  - name: Create Analysis Data table widget per period
+    id: analysis_data_table_single_views
+    task: create_table_widget_single_view
+    partial:
+      title: "Analysis Data"
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.analysis_data_table_html.return }}
+
+  - name: Merge per-period Analysis Data table widgets
+    id: analysis_data_table_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.analysis_data_table_single_views.return }}
+
+  - name: Draw metadata table
+    id: metadata_table
+    task: draw_table
+    partial:
+      columns: null
+      table_config: { enable_sorting: true, enable_filtering: true, enable_download: true }
+    mapvalues:
+      argnames: dataframe
+      argvalues: ${{ workflow.drop_null_cols.return }}
+
+  - name: Persist metadata table html
+    id: metadata_table_html
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: "metadata_table"
+    mapvalues:
+      argnames: text
+      argvalues: ${{ workflow.metadata_table.return }}
+
+  - name: Create Metadata table widget per period
+    id: metadata_table_single_views
+    task: create_table_widget_single_view
+    partial:
+      title: "Survey Metadata"
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.metadata_table_html.return }}
+
+  - name: Merge per-period Metadata table widgets
+    id: metadata_grouped_table_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.metadata_table_single_views.return }}
+
+  # Survey overview map: overlay transect areas (buffered corridor), transect
+  # lines, and wildlife event points on one map per (group_id, period).
+
+  - name: Set base maps for survey overview map
+    id: base_map_defs
+    task: set_base_maps_pydeck
+
+  - name: Reproject event points to epsg:4326 for map overlay
+    id: reproject_events_map
+    task: reproject_gdf
+    partial:
+      target_crs: "epsg:4326"
+    mapvalues:
+      argnames: gdf
+      argvalues: ${{ workflow.select_patrol_event_cols.return }}
+
+  - name: Create polygon layer for transect areas
+    id: transect_areas_layer
+    task: ecoscope_workflows_ext_custom.tasks.results.create_geojson_layer
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+        - all_geometry_are_none
+    partial:
+      data_url: null
+      layer_style:
+        filled: true
+        stroked: true
+        get_fill_color: [34, 139, 34]
+        get_line_color: [34, 139, 34]
+        get_line_width: 0.95
+        opacity: 0.55
+      legend:
+        title: "Legend"
+        values:
+          - label: Transect Areas
+            color: "#228b22"
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.format_transect_names.return }}
+
+  - name: Create polyline layer for transect lines
+    id: transect_lines_layer
+    task: ecoscope_workflows_ext_custom.tasks.results.create_geojson_layer
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+        - all_geometry_are_none
+    partial:
+      data_url: null
+      layer_style:
+        filled: true
+        stroked: true
+        get_fill_color: [0, 0, 0]
+        get_line_color: [0, 0, 0]
+        get_line_width: 0.95
+        opacity: 0.55
+      legend:
+        title: ""
+        values:
+          - label: Transect Lines
+            color: "#000000"
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.reproject_transect_lines.return }}
+
+  - name: Create point layer for wildlife events
+    id: events_point_layer
+    task: ecoscope_workflows_ext_custom.tasks.results.create_scatterplot_layer
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+        - all_geometry_are_none
+    partial:
+      data_url: null
+      layer_style:
+        get_fill_color: [210, 105, 30]
+        get_line_color: [210, 105, 30]
+        get_line_width: 0.25
+        get_radius : 4
+        opacity: 0.75
+        stroked: true
+      legend:
+        title: ""
+        values:
+          - label: Events
+            color: "#d2691e"
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.reproject_events_map.return }}
+
+  - name: Combine transect area, transect line, and event point layers
+    id: combined_survey_map_layers
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.transect_areas_layer.return }}
+        - ${{ workflow.transect_lines_layer.return }}
+        - ${{ workflow.events_point_layer.return }}
+
+  - title: Map Zoom & Extent
+    type: task-group
+    description: Calculate the geographic extent of the movement tracks and determine an appropriate zoom level and center point for the map. This ensures that all tracks are visible and well-framed when the map is rendered.
+    tasks:
+      - name: null
+        id: zoom_to_envelope 
+        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.envelope_gdf
+        partial:
+          expansion_factor: 1.35
+        mapvalues: 
+          argnames: gdf 
+          argvalues: ${{ workflow.format_transect_names.return }}
+  
+      - name: Zoom view to gdf extent
+        id: gdf_image_extent
+        task: ecoscope_workflows_ext_ste.tasks.spatial_operations.compute_view_state_from_gdf
+        partial:
+          pitch: 0
+          bearing: 0
+          max_zoom: 15
+        mapvalues:
+          argnames: gdf
+          argvalues: ${{ workflow.zoom_to_envelope.return }}
+
+  - name: Combine movement track layers with view state
+    id: zip_layers_with_viewstate
+    skipif:
+      conditions:
+        - any_dependency_skipped
+        - any_keyed_iterables_are_skips
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.combined_survey_map_layers.return }}
+        - ${{ workflow.gdf_image_extent.return }}
+
+  - name: Draw survey overview map
+    id: survey_overview_map
+    task: ecoscope_workflows_ext_custom.tasks.results.draw_map
+    partial:
+      tile_layers: ${{ workflow.base_map_defs.return }}
+      legend_style:
+        placement: "bottom-right"
+      static: false
+      title: null
+      max_zoom: 10
+    mapvalues:
+      argnames: 
+        - geo_layers
+        - view_state
+      argvalues: ${{ workflow.zip_layers_with_viewstate.return }}
+
+  - name: Persist survey overview map html
+    id: survey_overview_map_html
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: "survey_overview_map"
+    mapvalues:
+      argnames: text
+      argvalues: ${{ workflow.survey_overview_map.return }}
+
+  - name: Create Survey Overview map widget per period
+    id: survey_overview_map_single_views
+    task: create_map_widget_single_view
+    partial:
+      title: "Survey Overview Map"
+    map:
+      argnames: [view, data]
+      argvalues: ${{ workflow.survey_overview_map_html.return }}
+
+  - name: Merge per-period Survey Overview map widgets
+    id: survey_overview_map_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.survey_overview_map_single_views.return }}
 
   - name: Overall dashboard
     id: overall_dashboard
     task: gather_dashboard
     partial:
       details: ${{ workflow.workflow_details.return}}
-      widgets: []
-       # - ${{ workflow.publish_paths_widget.return }}
+      widgets:
+        - ${{ workflow.total_distance_grouped_widget.return }}
+        - ${{ workflow.total_effort_grouped_widget.return }}
+        - ${{ workflow.total_transects_grouped_widget.return }}
+
+        - ${{ workflow.survey_overview_map_widget.return }}
+        - ${{ workflow.field_effort_table_widget.return }}        
+        - ${{ workflow.metadata_grouped_table_widget.return }}
+        
+        - ${{ workflow.analysis_data_table_widget.return }}
+
       time_range: ${{ workflow.time_range.return}}
       groupers: ${{ workflow.groupers.return }}

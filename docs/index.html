@@ -312,6 +312,7 @@
         <a href="#overview">Overview</a>
         <a href="#configuration">Configuration</a>
         <a href="#outputs">Outputs</a>
+        <a href="#dashboard">Dashboard</a>
         <a href="assets/dsc_analysis_technical_guide.pdf">Technical Guide</a>
         <a href="https://github.com/wildlife-dynamics/dsc_analysis">GitHub</a>
       </div>
@@ -356,7 +357,8 @@
     The workflow supports <strong>multiple surveys per run</strong>. Each survey is automatically
     split into its <strong>detected activity periods</strong> — if a survey site was visited in,
     say, both February and June, the workflow produces two independent, period-tagged output sets
-    instead of one combined one. For each survey period it produces:
+    instead of one combined one. For each survey period it produces the six files below, plus a
+    matching set of <a href="#dashboard">interactive dashboard</a> views:
   </p>
 
   <table>
@@ -678,6 +680,38 @@
     corridors and appears in <code>transect_areas.gpkg</code>, but is not yet included in the
     <code>analysis_data.csv</code> column selection — only <code>NDVI_HSL</code> and <code>slope</code>
     are currently carried through to that file.
+  </div>
+
+  <hr />
+
+  <!-- ── Dashboard ── -->
+  <h2 id="dashboard">Dashboard</h2>
+
+  <p>
+    In addition to the files above, each run assembles an <strong>interactive dashboard</strong> —
+    one set of views per survey period, selectable through the dashboard's grouper controls
+    (survey, then period):
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Widget</th><th>Type</th><th>Shows</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Total Distance Surveyed (km)</td><td>Stat tile</td><td>Sum of field effort <code>distance</code> for the period</td></tr>
+      <tr><td>Total Effort (hours)</td><td>Stat tile</td><td>Sum of field effort <code>duration</code> for the period</td></tr>
+      <tr><td>Number of Transects Surveyed</td><td>Stat tile</td><td>Count of distinct transects present in the period</td></tr>
+      <tr><td>Survey Overview Map</td><td>Map</td><td>Transect areas (buffered corridor), transect lines, and wildlife event points, auto-framed to the survey's extent</td></tr>
+      <tr><td>Field Effort</td><td>Table</td><td>Sortable, filterable, downloadable copy of the field effort data</td></tr>
+      <tr><td>Survey Metadata</td><td>Table</td><td>Sortable, filterable, downloadable copy of the analysis metadata</td></tr>
+      <tr><td>Analysis Data</td><td>Table</td><td>Sortable, filterable, downloadable copy of the analysis data (geometry columns omitted)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Note:</strong> Earlier revisions of this workflow shipped with an empty dashboard — a
+    "files ready to publish" widget was built but never attached to it. All seven widgets above are
+    now wired in and populate automatically on every run.
   </div>
 
   <hr />

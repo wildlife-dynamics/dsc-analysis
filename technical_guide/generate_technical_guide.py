@@ -199,7 +199,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0", "ecoscope-workflows"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*",  "ecoscope-workflows-custom"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.5.*", "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.11.*", "ecoscope-workflows-custom"],
             ["pydeck",                                  "0.9.2", "conda-forge"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0", "conda-forge"],
         ],
@@ -903,22 +903,134 @@ story += [
       "immediately beforehand so it matches the lowercased transect names used "
       "for name-based transect matching."),
     sp(6),
-    h2("10.6  Publish handoff (prepared, not yet wired in)"),
-    p("The workflow builds a text widget (<b>create_text_widget_single_view</b>, "
-      "title: \"Files ready to publish\") listing every persisted transects and "
-      "patrol-events GeoPackage path across all surveys and periods, intended for "
-      "a reviewer to copy into a companion <b>dsc_publish</b> workflow. As of this "
-      "revision the widget is built but not yet attached to the dashboard "
-      "(<b>overall_dashboard.widgets</b> is empty, with the widget reference "
-      "commented out) — it is prepared for future wiring."),
+    h2("10.6  Publish handoff (removed)"),
+    p("Earlier revisions of this workflow built a text widget "
+      "(<b>create_text_widget_single_view</b>, title: \"Files ready to publish\") "
+      "listing every persisted transects and patrol-events GeoPackage path across "
+      "all surveys and periods, intended for a reviewer to copy into a companion "
+      "<b>dsc_publish</b> workflow. That widget — along with its supporting "
+      "<b>collect_patrol_events_paths</b> and <b>format_publish_paths</b> tasks — "
+      "was never attached to the dashboard and has been removed as of this "
+      "revision, superseded by the fully wired dashboard described in Section 11."),
     PageBreak(),
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. SOFTWARE VERSIONS
+# 11. INTERACTIVE DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
 story += [
-    h1("11. Software Versions"),
+    h1("11. Interactive Dashboard"),
+    hr(),
+    p("<b>gather_dashboard</b> assembles a dashboard of seven widgets. Every widget "
+      "is built per survey period and then combined across periods by "
+      "<b>merge_widget_views</b>, so the dashboard renders one set of tiles, map, "
+      "and tables per period, switchable via the dashboard's grouper controls."),
+    sp(6),
+    h2("11.1  Groupers"),
+    p("<b>set_groupers</b> defines two facet keys, both consumed by "
+      "<b>gather_dashboard</b>:"),
+    make_table(
+        [
+            ["index_name", "Facets by"],
+            ["group_id", "The originating survey (one per connection_config entry)"],
+            ["period",   "The detected activity period within that survey (Section 4.3)"],
+        ],
+        [4*cm, W - 4*cm],
+    ),
+    note("Earlier revisions left groupers empty and shipped a dashboard with no "
+         "widgets attached (Section 10.6). group_id and period mirror the same "
+         "{survey}_{period} labelling used for output filenames (Section 9), so "
+         "the dashboard's facet selector lines up one-to-one with the file naming "
+         "a reviewer already sees in the exports."),
+    sp(6),
+    h2("11.2  Widgets"),
+    make_table(
+        [
+            ["Widget", "Type", "Source"],
+            ["Total Distance Surveyed (km)", "Stat tile",
+             "dataframe_column_sum (distance, field_effort.return) → total_distance_grouped_widget"],
+            ["Total Effort (hours)", "Stat tile",
+             "dataframe_column_sum (duration, field_effort.return) → total_effort_grouped_widget"],
+            ["Number of Transects Surveyed", "Stat tile",
+             "dataframe_column_nunique (name, filter_areas_by_metadata.return) → "
+             "total_transects_grouped_widget"],
+            ["Survey Overview Map", "Map",
+             "draw_map (survey_overview_map) → survey_overview_map_widget"],
+            ["Field Effort", "Table",
+             "draw_table (field_effort.return) → field_effort_table_widget"],
+            ["Survey Metadata", "Table",
+             "draw_table (drop_null_cols.return) → metadata_grouped_table_widget"],
+            ["Analysis Data", "Table",
+             "draw_table (select_analysis_table_cols.return) → analysis_data_table_widget"],
+        ],
+        [4.3*cm, 2.3*cm, W - 6.6*cm],
+    ),
+    note("Total Transects counts distinct transect names in filter_areas_by_metadata "
+         "— transects present in this period's metadata after the buffer/metadata-"
+         "presence filter (Section 6.2 onward), which runs earlier in the pipeline "
+         "than the final visited-transect filter (Section 6.3). The count on the "
+         "dashboard tile can therefore differ slightly from the number of transects "
+         "in that period's transect_areas.gpkg / transect_lines.gpkg."),
+    sp(6),
+    h2("11.3  Survey Overview Map"),
+    p("The map overlays three layers, each built with "
+      "<b>ecoscope_workflows_ext_custom.tasks.results.create_geojson_layer</b> or "
+      "<b>create_scatterplot_layer</b> and combined via <b>groupbykey</b> "
+      "(<b>combined_survey_map_layers</b>):"),
+    make_table(
+        [
+            ["Layer", "Source", "Style"],
+            ["Transect Areas",  "format_transect_names.return (buffered, visited transects)",
+             "Green fill/outline, 55% opacity"],
+            ["Transect Lines",  "reproject_transect_lines.return (unbuffered centrelines)",
+             "Black outline, 55% opacity"],
+            ["Events",          "reproject_events_map.return (wildlife observations, reprojected to EPSG:4326)",
+             "Orange points, 75% opacity"],
+        ],
+        [3*cm, 6*cm, W - 9*cm],
+    ),
+    sp(4),
+    p("Each layer's <b>skipif</b> includes <b>all_geometry_are_none</b> alongside "
+      "the standard empty-dependency conditions, so a period with no visited "
+      "transects, for example, simply omits that layer rather than failing the "
+      "map. The view is auto-framed to the transect extent: "
+      "<b>envelope_gdf</b> (expansion_factor: 1.35) computes a bounding envelope "
+      "around the visited transects, and "
+      "<b>compute_view_state_from_gdf</b> (pitch: 0, bearing: 0, max_zoom: 15) "
+      "derives the pydeck view state from it. The combined layers and view state "
+      "are zipped together (<b>zip_layers_with_viewstate</b>) and rendered by "
+      "<b>draw_map</b> (max_zoom: 10, legend placement: bottom-right)."),
+    sp(6),
+    h2("11.4  Tables"),
+    p("All three table widgets use <b>draw_table</b> with sorting, filtering, and "
+      "download enabled (<b>table_config</b>: enable_sorting, enable_filtering, "
+      "enable_download all true), rendered to HTML and persisted via "
+      "<b>persist_text</b> before being wrapped as single-view table widgets:"),
+    make_table(
+        [
+            ["Table", "Source data", "Notes"],
+            ["Field Effort",   "field_effort.return",
+             "Same DataFrame persisted as field_effort.csv (Section 5.4)"],
+            ["Survey Metadata", "drop_null_cols.return",
+             "Same DataFrame persisted as analysis_metadata.csv (Section 5.1)"],
+            ["Analysis Data",  "select_analysis_table_cols.return",
+             "A dedicated column subset of select_patrol_event_cols.return "
+             "(the analysis_data.csv source) with geometry columns dropped for "
+             "in-dashboard display"],
+        ],
+        [3.2*cm, 4*cm, W - 7.2*cm],
+    ),
+    note("select_analysis_table_cols uses raise_on_missing: false, so a period "
+         "missing one of the listed columns (e.g. other_species) still renders a "
+         "table with the remaining columns rather than failing."),
+    PageBreak(),
+]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 12. SOFTWARE VERSIONS
+# ══════════════════════════════════════════════════════════════════════════════
+story += [
+    h1("12. Software Versions"),
     hr(),
     make_table(
         [
@@ -926,7 +1038,7 @@ story += [
             ["ecoscope-platform",                      ">=2.15.0, <2.16.0"],
             ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*"],
             ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.5.*"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.11.*"],
             ["pydeck",                                  "0.9.2"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0"],
         ],
