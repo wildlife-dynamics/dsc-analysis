@@ -35,6 +35,7 @@ from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.skip import (
     any_keyed_iterables_are_skips as any_keyed_iterables_are_skips,
 )
+from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
 from ecoscope.platform.tasks.transformation import (
     normalize_json_column as normalize_json_column,
@@ -93,6 +94,9 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     fetch_transects as fetch_transects,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    filter_complete_groups as filter_complete_groups,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     get_server_name as get_server_name,
@@ -639,6 +643,32 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
     )
 
+    relevant_event_types = (
+        task(filter_row_values)
+        .validate()
+        .set_task_instance_id("relevant_event_types")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column="event_type",
+            values=[
+                "distancecountwildlife_rep",
+                "distance_count_wildlife_sighting",
+                "distancecountpatrol_rep",
+                "distance_count_patrol_metadata",
+            ],
+            **(params.get("relevant_event_types") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=fetch_events_from_ids)
+    )
+
     filter_survey_events = (
         task(filter_row_values)
         .validate()
@@ -657,7 +687,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             values=["distancecountpatrol_rep", "distance_count_patrol_metadata"],
             **(params.get("filter_survey_events") or {}),
         )
-        .mapvalues(argnames=["df"], argvalues=fetch_events_from_ids)
+        .mapvalues(argnames=["df"], argvalues=relevant_event_types)
     )
 
     extract_lat_long = (
@@ -729,13 +759,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[extract_reported_by, fetch_earthranger_client],
             **(params.get("zip_conn_survey_df") or {}),
+        )
+        .call()
+    )
+
+    complete_conn_survey_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_conn_survey_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_conn_survey_df,
+            expected_length=2,
+            **(params.get("complete_conn_survey_df") or {}),
         )
         .call()
     )
@@ -758,7 +808,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ordered=True,
             **(params.get("process_survey_event_details") or {}),
         )
-        .mapvalues(argnames=["df", "client"], argvalues=zip_conn_survey_df)
+        .mapvalues(argnames=["df", "client"], argvalues=complete_conn_survey_df)
     )
 
     normalize_survey_df = (
@@ -917,13 +967,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[retrieve_survey_name, period_label],
             **(params.get("zip_name_period") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_name_period = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_name_period")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_name_period,
+            expected_length=2,
+            **(params.get("complete_zip_name_period") or {}),
         )
         .call()
     )
@@ -942,7 +1012,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("combine_survey_period_name") or {}))
-        .mapvalues(argnames=["first", "second"], argvalues=zip_name_period)
+        .mapvalues(argnames=["first", "second"], argvalues=complete_zip_name_period)
     )
 
     combine_survey_event_names = (
@@ -974,13 +1044,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_survey_event_names, drop_null_cols],
             **(params.get("zip_filename_survey_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_filename_survey_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_filename_survey_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_survey_df,
+            expected_length=2,
+            **(params.get("complete_zip_filename_survey_df") or {}),
         )
         .call()
     )
@@ -1003,7 +1093,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="csv",
             **(params.get("persist_survey_event_metadata") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_survey_df)
+        .mapvalues(
+            argnames=["filename", "df"], argvalues=complete_zip_filename_survey_df
+        )
     )
 
     zip_connection_metadata = (
@@ -1015,13 +1107,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[period_connection_survey, drop_null_cols],
             **(params.get("zip_connection_metadata") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_connection_metadata = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_connection_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_connection_metadata,
+            expected_length=2,
+            **(params.get("complete_zip_connection_metadata") or {}),
         )
         .call()
     )
@@ -1041,7 +1153,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(**(params.get("field_effort") or {}))
         .mapvalues(
-            argnames=["connection_survey", "df"], argvalues=zip_connection_metadata
+            argnames=["connection_survey", "df"],
+            argvalues=complete_zip_connection_metadata,
         )
     )
 
@@ -1071,13 +1184,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_survey_field, field_effort],
             **(params.get("zip_filename_fe") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_filename_fe = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_filename_fe")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_fe,
+            expected_length=2,
+            **(params.get("complete_zip_filename_fe") or {}),
         )
         .call()
     )
@@ -1100,7 +1233,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="csv",
             **(params.get("persist_field_effort") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_fe)
+        .mapvalues(argnames=["filename", "df"], argvalues=complete_zip_filename_fe)
     )
 
     total_distance_per_period = (
@@ -1130,13 +1263,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
         .partial(
-            title="Total Distance Surveyed (km)",
+            title="Total distance travelled during survey activity",
             decimal_places=1,
             **(params.get("total_distance_sv_widgets") or {}),
         )
@@ -1190,13 +1322,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
         .partial(
-            title="Total Effort (hours)",
+            title="Man-hours",
             decimal_places=1,
             **(params.get("total_effort_sv_widgets") or {}),
         )
@@ -1241,7 +1372,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             raise_on_missing=False,
             **(params.get("select_event_details") or {}),
         )
-        .mapvalues(argnames=["df"], argvalues=fetch_events_from_ids)
+        .mapvalues(argnames=["df"], argvalues=relevant_event_types)
     )
 
     zip_patrol_events_df = (
@@ -1253,13 +1384,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[period_patrol_events, select_event_details],
             **(params.get("zip_patrol_events_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_patrol_events_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_patrol_events_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_patrol_events_df,
+            expected_length=2,
+            **(params.get("complete_zip_patrol_events_df") or {}),
         )
         .call()
     )
@@ -1287,7 +1438,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             on=None,
             **(params.get("merge_patrol_events") or {}),
         )
-        .mapvalues(argnames=["left", "right"], argvalues=zip_patrol_events_df)
+        .mapvalues(argnames=["left", "right"], argvalues=complete_zip_patrol_events_df)
     )
 
     convert_tz_utc = (
@@ -1564,13 +1715,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[extract_notes, combine_survey_period_name],
             **(params.get("zip_conn_surv_name_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_conn_surv_name_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_conn_surv_name_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_conn_surv_name_df,
+            expected_length=2,
+            **(params.get("complete_zip_conn_surv_name_df") or {}),
         )
         .call()
     )
@@ -1589,7 +1760,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(column="survey_id", **(params.get("add_survey_column") or {}))
-        .mapvalues(argnames=["df", "value"], argvalues=zip_conn_surv_name_df)
+        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_conn_surv_name_df)
     )
 
     convert_transects_utm = (
@@ -1618,13 +1789,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[convert_transects_utm, fetch_patrol_transects],
             **(params.get("zip_transect_df_crs") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_transect_df_crs = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_transect_df_crs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_transect_df_crs,
+            expected_length=2,
+            **(params.get("complete_zip_transect_df_crs") or {}),
         )
         .call()
     )
@@ -1643,7 +1834,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("reproject_transects_utm") or {}))
-        .mapvalues(argnames=["target_crs", "gdf"], argvalues=zip_transect_df_crs)
+        .mapvalues(
+            argnames=["target_crs", "gdf"], argvalues=complete_zip_transect_df_crs
+        )
     )
 
     normalize_transect_names_utm = (
@@ -1693,13 +1886,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[convert_transects_utm, add_survey_column],
             **(params.get("zip_patrol_df_crs") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_patrol_df_crs = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_patrol_df_crs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_patrol_df_crs,
+            expected_length=2,
+            **(params.get("complete_zip_patrol_df_crs") or {}),
         )
         .call()
     )
@@ -1718,7 +1931,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("patrol_events_utm") or {}))
-        .mapvalues(argnames=["target_crs", "gdf"], argvalues=zip_patrol_df_crs)
+        .mapvalues(argnames=["target_crs", "gdf"], argvalues=complete_zip_patrol_df_crs)
     )
 
     zip_patrol_transects = (
@@ -1730,13 +1943,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[patrol_events_utm, normalize_transect_underscores],
             **(params.get("zip_patrol_transects") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_patrol_transects = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_patrol_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_patrol_transects,
+            expected_length=2,
+            **(params.get("complete_zip_patrol_transects") or {}),
         )
         .call()
     )
@@ -1761,7 +1994,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("observers_distance") or {}),
         )
         .mapvalues(
-            argnames=["patrol_events", "transects"], argvalues=zip_patrol_transects
+            argnames=["patrol_events", "transects"],
+            argvalues=complete_zip_patrol_transects,
         )
     )
 
@@ -1836,13 +2070,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[estimate_animal_position, normalize_transect_underscores],
             **(params.get("zip_est_patrol_transects") or {}),
+        )
+        .call()
+    )
+
+    complete_est_patrol_trans = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_est_patrol_trans")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_est_patrol_transects,
+            expected_length=2,
+            **(params.get("complete_est_patrol_trans") or {}),
         )
         .call()
     )
@@ -1867,7 +2121,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("compute_ortho_dist") or {}),
         )
         .mapvalues(
-            argnames=["patrol_events", "transects"], argvalues=zip_est_patrol_transects
+            argnames=["patrol_events", "transects"], argvalues=complete_est_patrol_trans
         )
     )
 
@@ -1960,13 +2214,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[exclude_neg_ortho_dist, buffer_transect_segments],
             **(params.get("zip_events_buff_trans") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_events_buff_trans = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_events_buff_trans")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_events_buff_trans,
+            expected_length=2,
+            **(params.get("complete_zip_events_buff_trans") or {}),
         )
         .call()
     )
@@ -1992,7 +2266,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("filter_intersecting_events") or {}),
         )
         .mapvalues(
-            argnames=["patrol_events", "transects"], argvalues=zip_events_buff_trans
+            argnames=["patrol_events", "transects"],
+            argvalues=complete_zip_events_buff_trans,
         )
     )
 
@@ -2005,13 +2280,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[buffer_transect_segments, drop_null_cols],
             **(params.get("zip_areas_metadata") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_areas_metadata = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_areas_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_areas_metadata,
+            expected_length=2,
+            **(params.get("complete_zip_areas_metadata") or {}),
         )
         .call()
     )
@@ -2034,7 +2329,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             metadata_id_column="Transect ID",
             **(params.get("filter_areas_by_metadata") or {}),
         )
-        .mapvalues(argnames=["transects", "metadata"], argvalues=zip_areas_metadata)
+        .mapvalues(
+            argnames=["transects", "metadata"], argvalues=complete_zip_areas_metadata
+        )
     )
 
     total_transects_per_period = (
@@ -2062,8 +2359,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -2138,13 +2434,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[reproject_transects, survey_min_date],
             **(params.get("zip_transects_min_date") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_transects_min_date = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_transects_min_date")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_transects_min_date,
+            expected_length=2,
+            **(params.get("complete_zip_transects_min_date") or {}),
         )
         .call()
     )
@@ -2163,7 +2479,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(column="survey_date", **(params.get("add_since_transects") or {}))
-        .mapvalues(argnames=["df", "value"], argvalues=zip_transects_min_date)
+        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_transects_min_date)
     )
 
     convert_trans_ee = (
@@ -2192,13 +2508,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[convert_trans_ee, survey_min_date],
             **(params.get("zip_aoi_min_date") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_aoi_min_date = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_aoi_min_date")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_aoi_min_date,
+            expected_length=2,
+            **(params.get("complete_zip_aoi_min_date") or {}),
         )
         .call()
     )
@@ -2223,7 +2559,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ndvi_band_name="NDVI_HSL",
             **(params.get("hls_ndvi_image") or {}),
         )
-        .mapvalues(argnames=["aoi", "since"], argvalues=zip_aoi_min_date)
+        .mapvalues(argnames=["aoi", "since"], argvalues=complete_zip_aoi_min_date)
     )
 
     create_slope_image = (
@@ -2267,7 +2603,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             woody_cover_band_name="WoodyCover",
             **(params.get("woody_cover_image") or {}),
         )
-        .mapvalues(argnames=["aoi", "since"], argvalues=zip_aoi_min_date)
+        .mapvalues(argnames=["aoi", "since"], argvalues=complete_zip_aoi_min_date)
     )
 
     zip_ndvi_transects = (
@@ -2279,13 +2615,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[add_since_transects, hls_ndvi_image],
             **(params.get("zip_ndvi_transects") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_ndvi_transects = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_ndvi_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_ndvi_transects,
+            expected_length=2,
+            **(params.get("complete_zip_ndvi_transects") or {}),
         )
         .call()
     )
@@ -2310,7 +2666,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             reducer_key="mean",
             **(params.get("label_ndvi_hsl") or {}),
         )
-        .mapvalues(argnames=["gdf", "image"], argvalues=zip_ndvi_transects)
+        .mapvalues(argnames=["gdf", "image"], argvalues=complete_zip_ndvi_transects)
     )
 
     zip_ndvi_min_date = (
@@ -2322,13 +2678,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[label_ndvi_hsl, survey_min_date],
             **(params.get("zip_ndvi_min_date") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_ndvi_min_date = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_ndvi_min_date")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_ndvi_min_date,
+            expected_length=2,
+            **(params.get("complete_zip_ndvi_min_date") or {}),
         )
         .call()
     )
@@ -2349,7 +2725,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             column="img_date_hsl_ndvi", **(params.get("add_img_date_hsl_ndvi") or {})
         )
-        .mapvalues(argnames=["df", "value"], argvalues=zip_ndvi_min_date)
+        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_ndvi_min_date)
     )
 
     label_slope = (
@@ -2385,13 +2761,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[label_slope, woody_cover_image],
             **(params.get("zip_woody_cover_image") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_woody_cover_image = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_woody_cover_image")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_woody_cover_image,
+            expected_length=2,
+            **(params.get("complete_zip_woody_cover_image") or {}),
         )
         .call()
     )
@@ -2416,7 +2812,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             reducer_key="mean",
             **(params.get("label_woody_cover") or {}),
         )
-        .mapvalues(argnames=["gdf", "image"], argvalues=zip_woody_cover_image)
+        .mapvalues(argnames=["gdf", "image"], argvalues=complete_zip_woody_cover_image)
     )
 
     filter_transect_columns = (
@@ -2498,13 +2894,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[filter_wild_analysis, exclude_geom],
             **(params.get("zip_patrol_transects_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_patrol_transects_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_patrol_transects_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_patrol_transects_df,
+            expected_length=2,
+            **(params.get("complete_zip_patrol_transects_df") or {}),
         )
         .call()
     )
@@ -2532,7 +2948,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             on=None,
             **(params.get("merge_filtered_patrols") or {}),
         )
-        .mapvalues(argnames=["left", "right"], argvalues=zip_patrol_transects_df)
+        .mapvalues(
+            argnames=["left", "right"], argvalues=complete_zip_patrol_transects_df
+        )
     )
 
     select_patrol_event_cols = (
@@ -2609,13 +3027,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_patrol_event_names, select_patrol_event_cols],
             **(params.get("zip_filename_patrol_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_filename_patrol_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_filename_patrol_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_patrol_df,
+            expected_length=2,
+            **(params.get("complete_zip_filename_patrol_df") or {}),
         )
         .call()
     )
@@ -2638,7 +3076,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="csv",
             **(params.get("persist_patrol_events_csv") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_patrol_df)
+        .mapvalues(
+            argnames=["filename", "df"], argvalues=complete_zip_filename_patrol_df
+        )
     )
 
     select_gpkg_columns = (
@@ -2695,13 +3135,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_gpkg_name, select_gpkg_columns],
             **(params.get("zip_filename_gpkg_df") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_filename_gpkg_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_filename_gpkg_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_gpkg_df,
+            expected_length=2,
+            **(params.get("complete_zip_filename_gpkg_df") or {}),
         )
         .call()
     )
@@ -2724,7 +3184,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="gpkg",
             **(params.get("persist_patrol_events_gpkg") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_gpkg_df)
+        .mapvalues(argnames=["filename", "df"], argvalues=complete_zip_filename_gpkg_df)
     )
 
     format_transect_names = (
@@ -2774,13 +3234,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_transect_gpkg_name, format_transect_names],
             **(params.get("zip_filename_transect_df") or {}),
+        )
+        .call()
+    )
+
+    complete_filename_transect_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_filename_transect_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_transect_df,
+            expected_length=2,
+            **(params.get("complete_filename_transect_df") or {}),
         )
         .call()
     )
@@ -2803,7 +3283,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="gpkg",
             **(params.get("persist_transects_gpkg") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=zip_filename_transect_df)
+        .mapvalues(argnames=["filename", "df"], argvalues=complete_filename_transect_df)
     )
 
     zip_lines_metadata = (
@@ -2815,13 +3295,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[simplify_tolerance, drop_null_cols],
             **(params.get("zip_lines_metadata") or {}),
+        )
+        .call()
+    )
+
+    complete_zip_lines_metadata = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_zip_lines_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_lines_metadata,
+            expected_length=2,
+            **(params.get("complete_zip_lines_metadata") or {}),
         )
         .call()
     )
@@ -2844,7 +3344,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             metadata_id_column="Transect ID",
             **(params.get("filter_lines_by_metadata") or {}),
         )
-        .mapvalues(argnames=["transects", "metadata"], argvalues=zip_lines_metadata)
+        .mapvalues(
+            argnames=["transects", "metadata"], argvalues=complete_zip_lines_metadata
+        )
     )
 
     reproject_transect_lines = (
@@ -2895,13 +3397,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combine_transect_lines_gpkg_name, reproject_transect_lines],
             **(params.get("zip_filename_transect_lines_df") or {}),
+        )
+        .call()
+    )
+
+    complete_fn_transect_lines_df = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_fn_transect_lines_df")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_transect_lines_df,
+            expected_length=2,
+            **(params.get("complete_fn_transect_lines_df") or {}),
         )
         .call()
     )
@@ -2924,9 +3446,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             filetype="gpkg",
             **(params.get("persist_transect_lines_gpkg") or {}),
         )
-        .mapvalues(
-            argnames=["filename", "df"], argvalues=zip_filename_transect_lines_df
-        )
+        .mapvalues(argnames=["filename", "df"], argvalues=complete_fn_transect_lines_df)
     )
 
     zip_publish_paths = (
@@ -3066,8 +3586,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -3238,8 +3757,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -3408,7 +3926,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -3464,13 +3981,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .skipif(
             conditions=[
                 any_dependency_skipped,
-                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
         .partial(
             iterables=[combined_survey_map_layers, gdf_image_extent],
             **(params.get("zip_layers_with_viewstate") or {}),
+        )
+        .call()
+    )
+
+    complete_layers_viewstate = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_layers_viewstate")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_layers_with_viewstate,
+            expected_length=2,
+            **(params.get("complete_layers_viewstate") or {}),
         )
         .call()
     )
@@ -3497,7 +4034,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("survey_overview_map") or {}),
         )
         .mapvalues(
-            argnames=["geo_layers", "view_state"], argvalues=zip_layers_with_viewstate
+            argnames=["geo_layers", "view_state"], argvalues=complete_layers_viewstate
         )
     )
 
@@ -3530,8 +4067,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -3584,7 +4120,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 survey_overview_map_widget,
                 field_effort_table_widget,
                 metadata_grouped_table_widget,
-                analysis_data_table_widget,
             ],
             time_range=time_range,
             groupers=groupers,

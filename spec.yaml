@@ -13,7 +13,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.0.11.*"
+    version: "1.0.12.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -207,6 +207,20 @@ workflow:
         - patrol_events
       argvalues: ${{ workflow.period_split.return }}
 
+  - name: Filter out relevant event type values 
+    id: relevant_event_types 
+    task: filter_row_values 
+    partial: 
+      column: event_type 
+      values: 
+        - distancecountwildlife_rep
+        - distance_count_wildlife_sighting
+        - distancecountpatrol_rep
+        - distance_count_patrol_metadata
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.fetch_events_from_ids.return }}
+
   # survey event details values
   - name: Filter out distancecountpatrol_rep events only 
     id: filter_survey_events
@@ -218,7 +232,8 @@ workflow:
         - distance_count_patrol_metadata
     mapvalues:
       argnames: df 
-      argvalues: ${{ workflow.fetch_events_from_ids.return }}
+      argvalues: ${{ workflow.relevant_event_types.return }} 
+      #${{ workflow.fetch_events_from_ids.return }}
 
   - name: Extract latitude and longitude columns from survey events 
     id: extract_lat_long 
@@ -248,30 +263,44 @@ workflow:
       argnames: df 
       argvalues: ${{ workflow.normalize_reported_by.return }}
 
-  - name: Zip er connection to retained survey values 
-    id: zip_conn_survey_df 
+  - name: Zip er connection to retained survey values
+    id: zip_conn_survey_df
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
-    partial: 
+    partial:
       iterables:
         - ${{ workflow.extract_reported_by.return }}
         - ${{ workflow.fetch_earthranger_client.return }}
 
-  - name: Process survey event details 
-    id: process_survey_event_details 
+  # extract_reported_by's keys can legitimately be a subset of
+  # fetch_earthranger_client's (a period with no relevant events skips upstream
+  # while the connection lookup, which doesn't depend on event content, still
+  # runs for every period) -- groupbykey has no inner-join semantics, so a
+  # mismatched key above comes out as a 1-element group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those out
+  # explicitly rather than relying on any_keyed_iterables_are_skips, which
+  # would discard every period's data as soon as just one period mismatches.
+  - name: Drop periods where connection/survey-df zip is incomplete
+    id: complete_conn_survey_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_conn_survey_df.return }}
+      expected_length: 2
+
+  - name: Process survey event details
+    id: process_survey_event_details
     task: process_events_details
-    partial: 
-      map_to_titles: true 
-      ordered: true 
-    mapvalues: 
+    partial:
+      map_to_titles: true
+      ordered: true
+    mapvalues:
       argnames:
-        - df 
-        - client 
-      argvalues: ${{ workflow.zip_conn_survey_df.return }}
+        - df
+        - client
+      argvalues: ${{ workflow.complete_conn_survey_df.return }}
 
   - name: Normalize event_details column
     id: normalize_survey_df
@@ -367,13 +396,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.retrieve_survey_name.return }}
         - ${{ workflow.period_label.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_name_period's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_name_period
+    id: complete_zip_name_period
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_name_period.return }}
+      expected_length: 2
 
   # base filename/survey_id shared by every file persisted for this survey period,
   # e.g. "olaremotorogi_2026_02"
@@ -384,7 +424,7 @@ workflow:
       argnames:
         - first
         - second
-      argvalues: ${{ workflow.zip_name_period.return }}
+      argvalues: ${{ workflow.complete_zip_name_period.return }}
 
   - name: Combine survey name with event details for filename
     id: combine_survey_event_names
@@ -400,13 +440,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_survey_event_names.return }}
         - ${{ workflow.drop_null_cols.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_survey_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_survey_df
+    id: complete_zip_filename_survey_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_survey_df.return }}
+      expected_length: 2
 
   - name: Persist survey event details dataframe with dynamic filename
     id: persist_survey_event_metadata
@@ -418,20 +469,31 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_survey_df.return }}
+      argvalues: ${{ workflow.complete_zip_filename_survey_df.return }}
 
   - name: Zip connection survey split information with metadata csv
     id: zip_connection_metadata
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.period_connection_survey.return }} #connectionconfig survey
         - ${{ workflow.drop_null_cols.return }} # metadata summary table
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_connection_metadata's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_connection_metadata
+    id: complete_zip_connection_metadata
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_connection_metadata.return }}
+      expected_length: 2
 
   - name: Compute field effort
     id: field_effort
@@ -440,7 +502,7 @@ workflow:
       argnames:
         - connection_survey
         - df
-      argvalues: ${{ workflow.zip_connection_metadata.return }}
+      argvalues: ${{ workflow.complete_zip_connection_metadata.return }}
 
   - name: Combine survey name with field effort
     id: combine_survey_field
@@ -456,13 +518,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_survey_field.return }}
         - ${{ workflow.field_effort.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_fe's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_fe
+    id: complete_zip_filename_fe
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_fe.return }}
+      expected_length: 2
 
   - name: Persist field effort with dynamic filename
     id: persist_field_effort
@@ -474,7 +547,7 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_fe.return }}
+      argvalues: ${{ workflow.complete_zip_filename_fe.return }}
 
   # Dashboard stat tiles: total surveyed distance and total effort, one value
   # per (group_id, period), faceted on the dashboard via the group_id/period
@@ -491,8 +564,11 @@ workflow:
   - name: Create Total Distance stat widget per period
     id: total_distance_sv_widgets
     task: create_single_value_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
-      title: "Total Distance Surveyed (km)"
+      title: "Total distance travelled during survey activity"
       decimal_places: 1
     map:
       argnames: [view, data]
@@ -516,8 +592,11 @@ workflow:
   - name: Create Total Effort stat widget per period
     id: total_effort_sv_widgets
     task: create_single_value_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
-      title: "Total Effort (hours)"
+      title: "Man-hours"
       decimal_places: 1
     map:
       argnames: [view, data]
@@ -537,20 +616,32 @@ workflow:
       raise_on_missing: false
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.fetch_events_from_ids.return }}
+      argvalues: ${{ workflow.relevant_event_types.return }}
+      #${{ workflow.fetch_events_from_ids.return }}
 
   - name: Zip patrol events and filtered event dataframe
     id: zip_patrol_events_df
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.period_patrol_events.return }} #left
         - ${{ workflow.select_event_details.return }} #right
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_patrol_events_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_patrol_events_df
+    id: complete_zip_patrol_events_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_patrol_events_df.return }}
+      expected_length: 2
 
   - name: Merge patrols with events event_details column
     id: merge_patrol_events
@@ -567,7 +658,7 @@ workflow:
       argnames:
         - left
         - right
-      argvalues: ${{ workflow.zip_patrol_events_df.return }}
+      argvalues: ${{ workflow.complete_zip_patrol_events_df.return }}
 
   - name: Convert timezone to UTC 
     id : convert_tz_utc
@@ -653,6 +744,7 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.normalize_transect_id.return }}
+      #${{ workflow.filter_missing_transect_id.return }}
 
   - name: Extract list values from Transect ID column
     id: join_transect_id
@@ -723,28 +815,39 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.ffill_patrol_events.return }}
 
-  - name: Extract other species from other notes 
+  - name: Extract other species from other notes
     id: extract_notes
-    task: extract_notes_text 
-    partial: 
-      column: notes 
+    task: extract_notes_text
+    partial:
+      column: notes
       new_column: "other_species"
     mapvalues:
-      argnames: df 
-      argvalues: ${{ workflow.filter_wildlife_rep.return }}
+      argnames: df
+      argvalues:  ${{ workflow.filter_wildlife_rep.return }}
 
   - name: Zip connection survey name with patrol events
     id: zip_conn_surv_name_df 
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.extract_notes.return }} #filter_wildlife_rep
         - ${{ workflow.combine_survey_period_name.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_conn_surv_name_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_conn_surv_name_df
+    id: complete_zip_conn_surv_name_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_conn_surv_name_df.return }}
+      expected_length: 2
 
   - name: Add survey_id column to patrol events df
     id: add_survey_column 
@@ -755,7 +858,7 @@ workflow:
       argnames: 
         - df 
         - value
-      argvalues: ${{ workflow.zip_conn_surv_name_df.return }}
+      argvalues: ${{ workflow.complete_zip_conn_surv_name_df.return }}
 
   # Transects 
   - name: Convert retrieved transects crs to utm_crs
@@ -770,7 +873,6 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey 
     partial: 
@@ -779,6 +881,18 @@ workflow:
         - ${{ workflow.fetch_patrol_transects.return }} 
         #${{ workflow.format_transect_names.return }}
 
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_transect_df_crs's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_transect_df_crs
+    id: complete_zip_transect_df_crs
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_transect_df_crs.return }}
+      expected_length: 2
+
   - name: Reproject transects to utm crs
     id: reproject_transects_utm
     task: reproject_gdf
@@ -786,7 +900,7 @@ workflow:
       argnames:
         - target_crs
         - gdf
-      argvalues: ${{ workflow.zip_transect_df_crs.return }}
+      argvalues: ${{ workflow.complete_zip_transect_df_crs.return }}
 
   - name: Normalize transect names to lowercase for consistent ID matching
     id: normalize_transect_names_utm
@@ -812,13 +926,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey 
     partial: 
       iterables: 
         - ${{ workflow.convert_transects_utm.return }}
         - ${{ workflow.add_survey_column.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_patrol_df_crs's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_patrol_df_crs
+    id: complete_zip_patrol_df_crs
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_patrol_df_crs.return }}
+      expected_length: 2
 
   - name: Reproject patrol events to utm crs
     id: patrol_events_utm 
@@ -827,20 +952,31 @@ workflow:
       argnames: 
         - target_crs 
         - gdf 
-      argvalues: ${{ workflow.zip_patrol_df_crs.return }}
+      argvalues: ${{ workflow.complete_zip_patrol_df_crs.return }}
     
   - name: Zip patrol events and transects
     id: zip_patrol_transects
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.patrol_events_utm.return }}
         - ${{ workflow.normalize_transect_underscores.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_patrol_transects's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_patrol_transects
+    id: complete_zip_patrol_transects
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_patrol_transects.return }}
+      expected_length: 2
 
   - name: Calculate distance from observers position to transect centerline 
     id: observers_distance 
@@ -853,7 +989,7 @@ workflow:
       argnames: 
         - patrol_events 
         - transects 
-      argvalues: ${{ workflow.zip_patrol_transects.return }}
+      argvalues: ${{ workflow.complete_zip_patrol_transects.return }}
 
   - name: Exclude row values where off_transect_dist == -1
     id: exclude_neg_off_transects
@@ -890,13 +1026,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.estimate_animal_position.return }}
         - ${{ workflow.normalize_transect_underscores.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_est_patrol_transects's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_est_patrol_transects
+    id: complete_est_patrol_trans
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_est_patrol_transects.return }}
+      expected_length: 2
 
   - name: Calculate orthogonal distance
     id: compute_ortho_dist
@@ -909,7 +1056,7 @@ workflow:
       argnames: 
         - patrol_events 
         - transects 
-      argvalues: ${{ workflow.zip_est_patrol_transects.return }}
+      argvalues: ${{ workflow.complete_est_patrol_trans.return }}
   
   - name: Exclude row values where ortho_dist == -1
     id: exclude_neg_ortho_dist
@@ -963,13 +1110,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.exclude_neg_ortho_dist.return }}
         - ${{ workflow.buffer_transect_segments.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_events_buff_trans's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_events_buff_trans
+    id: complete_zip_events_buff_trans
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_events_buff_trans.return }}
+      expected_length: 2
 
   - name: Filter events that intersect with transects
     id: filter_intersecting_events
@@ -983,21 +1141,32 @@ workflow:
       argnames:
         - patrol_events
         - transects
-      argvalues: ${{ workflow.zip_events_buff_trans.return }}
+      argvalues: ${{ workflow.complete_zip_events_buff_trans.return }}
 
   - name: Zip buffered transects with period metadata for metadata-presence filter
     id: zip_areas_metadata
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.buffer_transect_segments.return }}
         - ${{ workflow.drop_null_cols.return }}
-        
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_areas_metadata's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_areas_metadata
+    id: complete_zip_areas_metadata
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_areas_metadata.return }}
+      expected_length: 2
+
   - name: Keep only transects present in this period's metadata
     id: filter_areas_by_metadata
     task: filter_transects_by_metadata
@@ -1008,7 +1177,7 @@ workflow:
       argnames:
         - transects
         - metadata
-      argvalues: ${{ workflow.zip_areas_metadata.return }}
+      argvalues: ${{ workflow.complete_zip_areas_metadata.return }}
 
   - name: Count transects surveyed per period
     id: total_transects_per_period
@@ -1022,6 +1191,9 @@ workflow:
   - name: Create Total Transects stat widget per period
     id: total_transects_sv_widgets
     task: create_single_value_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Number of Transects Surveyed"
       decimal_places: 0
@@ -1056,13 +1228,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.reproject_transects.return }}
         - ${{ workflow.survey_min_date.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_transects_min_date's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_transects_min_date
+    id: complete_zip_transects_min_date
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_transects_min_date.return }}
+      expected_length: 2
 
   - name: Add since filter to transect df
     id: add_since_transects
@@ -1073,7 +1256,7 @@ workflow:
       argnames:
         - df
         - value
-      argvalues: ${{ workflow.zip_transects_min_date.return }}
+      argvalues: ${{ workflow.complete_zip_transects_min_date.return }}
 
   - name: Convert transects to feature collection
     id: convert_trans_ee
@@ -1089,13 +1272,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.convert_trans_ee.return }}
         - ${{ workflow.survey_min_date.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_aoi_min_date's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_aoi_min_date
+    id: complete_zip_aoi_min_date
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_aoi_min_date.return }}
+      expected_length: 2
 
   - name: Build hls ndvi image
     id: hls_ndvi_image
@@ -1109,7 +1303,7 @@ workflow:
       argnames:
         - aoi
         - since
-      argvalues: ${{ workflow.zip_aoi_min_date.return }}
+      argvalues: ${{ workflow.complete_zip_aoi_min_date.return }}
 
   - name: Build slope image
     id: create_slope_image
@@ -1130,20 +1324,31 @@ workflow:
       argnames:
         - aoi
         - since
-      argvalues: ${{ workflow.zip_aoi_min_date.return }}
+      argvalues: ${{ workflow.complete_zip_aoi_min_date.return }}
 
   - name: Zip transects with hls ndvi image
     id: zip_ndvi_transects
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.add_since_transects.return }}
         - ${{ workflow.hls_ndvi_image.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_ndvi_transects's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_ndvi_transects
+    id: complete_zip_ndvi_transects
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_ndvi_transects.return }}
+      expected_length: 2
 
   - name: Add NDVI_HSL column to transects column
     id: label_ndvi_hsl
@@ -1157,20 +1362,31 @@ workflow:
       argnames:
         - gdf
         - image
-      argvalues: ${{ workflow.zip_ndvi_transects.return }}
+      argvalues: ${{ workflow.complete_zip_ndvi_transects.return }}
   
   - name: Zip ndvi df with survey min date
     id: zip_ndvi_min_date
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.label_ndvi_hsl.return }}
         - ${{ workflow.survey_min_date.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_ndvi_min_date's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_ndvi_min_date
+    id: complete_zip_ndvi_min_date
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_ndvi_min_date.return }}
+      expected_length: 2
 
   - name: Add img_date_hsl_ndvi to transects column
     id: add_img_date_hsl_ndvi
@@ -1181,7 +1397,7 @@ workflow:
       argnames:
         - df
         - value
-      argvalues: ${{ workflow.zip_ndvi_min_date.return }}
+      argvalues: ${{ workflow.complete_zip_ndvi_min_date.return }}
 
   - name: Add slope column to transects column
     id: label_slope
@@ -1201,13 +1417,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.label_slope.return }}
         - ${{ workflow.woody_cover_image.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_woody_cover_image's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_woody_cover_image
+    id: complete_zip_woody_cover_image
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_woody_cover_image.return }}
+      expected_length: 2
 
   - name: Add woody cover column to transects column
     id: label_woody_cover
@@ -1221,7 +1448,7 @@ workflow:
       argnames:
         - gdf
         - image
-      argvalues: ${{ workflow.zip_woody_cover_image.return }}
+      argvalues: ${{ workflow.complete_zip_woody_cover_image.return }}
 
   - name: Filter column transects for merging with patrol events
     id: filter_transect_columns
@@ -1277,13 +1504,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.filter_wild_analysis.return }}
         - ${{ workflow.exclude_geom.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_patrol_transects_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_patrol_transects_df
+    id: complete_zip_patrol_transects_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_patrol_transects_df.return }}
+      expected_length: 2
 
   - name: Merge patrol events with transects 
     id: merge_filtered_patrols
@@ -1300,7 +1538,7 @@ workflow:
       argnames:
         - left
         - right 
-      argvalues: ${{ workflow.zip_patrol_transects_df.return }}
+      argvalues: ${{ workflow.complete_zip_patrol_transects_df.return }}
       
   - name: Select patrol event columns for export 
     id: select_patrol_event_cols 
@@ -1335,13 +1573,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_patrol_event_names.return }}
         - ${{ workflow.select_patrol_event_cols.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_patrol_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_patrol_df
+    id: complete_zip_filename_patrol_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_patrol_df.return }}
+      expected_length: 2
 
   - name: Persist patrol events as csv
     id: persist_patrol_events_csv
@@ -1353,7 +1602,7 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_patrol_df.return }}
+      argvalues: ${{ workflow.complete_zip_filename_patrol_df.return }}
 
   - name: Select columns to persist as gpkg 
     id: select_gpkg_columns
@@ -1382,13 +1631,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_gpkg_name.return }}
         - ${{ workflow.select_gpkg_columns.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_gpkg_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_gpkg_df
+    id: complete_zip_filename_gpkg_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_gpkg_df.return }}
+      expected_length: 2
 
   - name: Persist patrol events as gpkg
     id: persist_patrol_events_gpkg
@@ -1400,7 +1660,7 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_gpkg_df.return }}
+      argvalues: ${{ workflow.complete_zip_filename_gpkg_df.return }}
 
   - name: Convert all name values in transects to lowercase
     id: format_transect_names
@@ -1426,13 +1686,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_transect_gpkg_name.return }}
         - ${{ workflow.format_transect_names.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_transect_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_transect_df
+    id: complete_filename_transect_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_transect_df.return }}
+      expected_length: 2
 
   - name: Persist transects as gpkg
     id: persist_transects_gpkg
@@ -1444,7 +1715,7 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_transect_df.return }}
+      argvalues: ${{ workflow.complete_filename_transect_df.return }}
 
   # Transect lines: the same metadata-present subset as "transect_areas" above, but
   # with the simplified line geometry (pre-buffering) instead of the buffered polygon.
@@ -1453,13 +1724,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.simplify_tolerance.return }}
         - ${{ workflow.drop_null_cols.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_lines_metadata's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_lines_metadata
+    id: complete_zip_lines_metadata
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_lines_metadata.return }}
+      expected_length: 2
 
   - name: Keep only transect lines present in this period's metadata
     id: filter_lines_by_metadata
@@ -1471,7 +1753,7 @@ workflow:
       argnames:
         - transects
         - metadata
-      argvalues: ${{ workflow.zip_lines_metadata.return }}
+      argvalues: ${{ workflow.complete_zip_lines_metadata.return }}
 
   - name: Reproject transect lines back to epsg:4326 for export
     id: reproject_transect_lines
@@ -1496,13 +1778,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combine_transect_lines_gpkg_name.return }}
         - ${{ workflow.reproject_transect_lines.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_filename_transect_lines_df's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_filename_transect_lines_df
+    id: complete_fn_transect_lines_df
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_transect_lines_df.return }}
+      expected_length: 2
 
   - name: Persist transect lines as gpkg
     id: persist_transect_lines_gpkg
@@ -1514,7 +1807,7 @@ workflow:
       argnames:
         - filename
         - df
-      argvalues: ${{ workflow.zip_filename_transect_lines_df.return }}
+      argvalues: ${{ workflow.complete_fn_transect_lines_df.return }}
 
   # Surface persisted file paths so a reviewer can copy one into the dsc_publish workflow.
   # Deliberately does NOT use any_keyed_iterables_are_skips here: with many independent
@@ -1582,6 +1875,9 @@ workflow:
   - name: Create Field Effort table widget per period
     id: field_effort_table_single_views
     task: create_table_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Field Effort"
     map:
@@ -1652,6 +1948,9 @@ workflow:
   - name: Create Metadata table widget per period
     id: metadata_table_single_views
     task: create_table_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Survey Metadata"
     map:
@@ -1763,7 +2062,6 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1801,13 +2099,24 @@ workflow:
     skipif:
       conditions:
         - any_dependency_skipped
-        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
       iterables:
         - ${{ workflow.combined_survey_map_layers.return }}
         - ${{ workflow.gdf_image_extent.return }}
+
+  # groupbykey has no inner-join semantics: a key missing from one of
+  # zip_layers_with_viewstate's two iterables still produces a short group instead of being
+  # dropped, which crashes the fixed-argname mapvalues below. Filter those
+  # out explicitly instead of any_keyed_iterables_are_skips, which would
+  # discard every key's data as soon as just one key mismatches.
+  - name: Drop incomplete groups from zip_layers_with_viewstate
+    id: complete_layers_viewstate
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_layers_with_viewstate.return }}
+      expected_length: 2
 
   - name: Draw survey overview map
     id: survey_overview_map
@@ -1823,7 +2132,7 @@ workflow:
       argnames: 
         - geo_layers
         - view_state
-      argvalues: ${{ workflow.zip_layers_with_viewstate.return }}
+      argvalues: ${{ workflow.complete_layers_viewstate.return }}
 
   - name: Persist survey overview map html
     id: survey_overview_map_html
@@ -1838,6 +2147,9 @@ workflow:
   - name: Create Survey Overview map widget per period
     id: survey_overview_map_single_views
     task: create_map_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Survey Overview Map"
     map:
@@ -1864,7 +2176,7 @@ workflow:
         - ${{ workflow.field_effort_table_widget.return }}        
         - ${{ workflow.metadata_grouped_table_widget.return }}
         
-        - ${{ workflow.analysis_data_table_widget.return }}
+        # - ${{ workflow.analysis_data_table_widget.return }}
 
       time_range: ${{ workflow.time_range.return}}
       groupers: ${{ workflow.groupers.return }}
