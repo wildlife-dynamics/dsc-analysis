@@ -1913,6 +1913,9 @@ workflow:
   - name: Create Analysis Data table widget per period
     id: analysis_data_table_single_views
     task: create_table_widget_single_view
+    skipif:
+      conditions:
+        - never
     partial:
       title: "Analysis Data"
     map:
