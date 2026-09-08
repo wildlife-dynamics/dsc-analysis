@@ -35,7 +35,7 @@ task-instance-defaults:
       - any_dependency_skipped
 
 workflow:
-  - name: Set Workflow Details
+  - name: Workflow Details
     id: workflow_details
     task: set_workflow_details
 
@@ -99,7 +99,7 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       subfolder: ER_TransectLines
 
-  - name: Configure EarthRanger and Survey Details
+  - name:  Survey Connection Configs
     id: connection_config
     task: create_connection_configs_from_ids
 
@@ -1969,7 +1969,7 @@ workflow:
   # Survey overview map: overlay transect areas (buffered corridor), transect
   # lines, and wildlife event points on one map per (group_id, period).
 
-  - name: Set base maps for survey overview map
+  - name: Map Base Layers
     id: base_map_defs
     task: set_base_maps_pydeck
 
