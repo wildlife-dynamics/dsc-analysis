@@ -1,21 +1,10 @@
-name:  # Title Case, e.g. "My Ecoscope Workflow Template"
-
-# at least one author is required
+name: DSC Analysis
 author:
-  - name: ""
-    organization: ""
-    email: ""
+  - name: Tevin Temu
+    organization: Wildlife Dynamics
+    email: tevin@wildlifedynamics.com
 
-description: # A short description
-
-# todo: add example
-theory: "" # optional
-
-# todo: add example
-output_comment: "" # optional
-
-# optional
-# example
-# citation: 
-#   - Wu, Y. et al. (2025). "Monitoring elephant spatial patterns with Ecoscope workflows."
-citation: [] 
+description: Processes Distance Sample Count (DSC) wildlife survey patrols from EarthRanger for one or more surveys, splits each survey into its detected activity periods, calculates distance sampling geometry and field effort, labels visited transects with Google Earth Engine environmental covariates, and exports analysis-ready datasets for population density modelling with a dashboard per survey period.
+theory: "Observations follow line-transect distance sampling. Events and transects are reprojected to UTM, and for each sighting the workflow calculates the observer's perpendicular distance to the transect centreline, estimates the animal's position from the radial angle and distance to centre, and calculates the orthogonal distance from that position to the centreline. Only events within a 500 m transect buffer are kept, and a transect counts as visited if it has a patrol marker or a sighting. Visited transect corridors are labelled with mean HLS NDVI (max 30% cloud cover), terrain slope, and PALSAR woody cover (dry-season composite). Field effort per team member (daily distance, duration, and man-hours) is derived from EarthRanger subject GPS tracks."
+output_comment: "For each survey period, outputs an analysis metadata CSV, a field effort CSV, an analysis data CSV of wildlife observations with distance sampling fields and covariates, an events GeoPackage, a visited transect areas GeoPackage (buffered corridors with NDVI, slope, and woody cover), and a visited transect lines GeoPackage, each in its own subfolder. The dashboard has one set of views per survey period with stat tiles for distance surveyed, effort hours, and transects surveyed, a survey overview map, and field effort, metadata, and analysis data tables."
+citation: []
