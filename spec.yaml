@@ -13,7 +13,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.0.12.*"
+    version: "1.1.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -99,6 +99,20 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       subfolder: ER_TransectLines
 
+  - name: Output folder for master transects gpkg
+    id: master_transects_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: ER_MasterTransects
+
+  - name: Output folder for cross-survey analysis outputs
+    id: analysis_outputs_folder
+    task: build_output_subfolder
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      subfolder: AnalysisOutputs
+
   - name:  Survey Connection Configs
     id: connection_config
     task: create_connection_configs_from_ids
@@ -108,6 +122,74 @@ workflow:
     task: split_connection_configs
     partial:
       connection_configs: ${{ workflow.connection_config.return }}
+
+  # Master transects: persist the survey's transects exactly as returned by
+  # EarthRanger (no filtering/reprojection), once per survey rather than per
+  # period. The filename carries the run date (e.g. mnc_master_transects_2026_10_02),
+  # so re-running on the same day overwrites that day's snapshot instead of
+  # accumulating duplicates.
+  - name: Fetch master transects per survey
+    id: fetch_master_transects
+    task: fetch_transects
+    mapvalues:
+      argnames: connection_survey
+      argvalues: ${{ workflow.split_connection_config.return }}
+
+  - name: Get survey name for master transects
+    id: master_transects_survey_name
+    task: get_server_subdomain
+    mapvalues:
+      argnames: connection_survey
+      argvalues: ${{ workflow.split_connection_config.return }}
+
+  - name: Combine survey name with master transects
+    id: combine_master_transects_name
+    task: join_with_underscore
+    partial:
+      second: master_transects
+    mapvalues:
+      argnames: first
+      argvalues: ${{ workflow.master_transects_survey_name.return }}
+
+  - name: Add run date to master transects filename
+    id: master_transects_filename
+    task: append_run_date
+    partial: 
+      date_format: "%Y_%m_%d"
+    mapvalues:
+      argnames: name
+      argvalues: ${{ workflow.combine_master_transects_name.return }}
+
+  - name: Zip filename with master transects
+    id: zip_filename_master_transects
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: groupbykey
+    partial:
+      iterables:
+        - ${{ workflow.master_transects_filename.return }}
+        - ${{ workflow.fetch_master_transects.return }}
+
+  - name: Drop incomplete groups from zip_filename_master_transects
+    id: complete_fn_master_transects
+    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    partial:
+      zipped: ${{ workflow.zip_filename_master_transects.return }}
+      expected_length: 2
+
+  - name: Persist master transects snapshot as gpkg
+    id: persist_master_transects_gpkg
+    task: persist_df
+    partial:
+      root_path: ${{ workflow.master_transects_folder.return }}
+      filetype: gpkg
+    mapvalues:
+      argnames:
+        - filename
+        - df
+      argvalues: ${{ workflow.complete_fn_master_transects.return }}
 
   # fetch patrol events for each survey connectionconfig
   - name: Fetch patrol events
@@ -1808,6 +1890,130 @@ workflow:
         - filename
         - df
       argvalues: ${{ workflow.complete_fn_transect_lines_df.return }}
+
+  # Analysis outputs: cross-survey products built once every survey/period branch
+  # has finished (ported from summarize_survey_tracks.ipynb). These consume the
+  # same per-branch dataframes that were persisted above (master transects,
+  # transect areas, analysis metadata) and write into AnalysisOutputs/.
+  - name: Combine master transects across surveys
+    id: combined_latest_transects
+    task: combine_transects
+    partial:
+      transects: ${{ workflow.fetch_master_transects.return }}
+      crs: 32736
+
+  - name: Combine each survey's latest transect areas
+    id: combined_latest_survey_areas
+    task: combine_latest_survey_areas
+    partial:
+      areas: ${{ workflow.format_transect_names.return }}
+      crs: 32736
+
+  - name: Combine survey metadata across surveys and periods
+    id: combined_metadata
+    task: combine_survey_metadata
+    partial:
+      metadata: ${{ workflow.drop_null_cols.return }}
+      exclude_surveys:
+        - pardamat_2024_11
+
+  - name: Build processed survey metadata (one row per transect per survey period)
+    id: survey_metadata_processed
+    task: build_survey_metadata_processed
+    partial:
+      survey_metadata: ${{ workflow.combined_metadata.return }}
+
+  - name: Build quarterly survey log
+    id: quarterly_survey_log
+    task: build_survey_log
+    partial:
+      transects: ${{ workflow.combined_latest_transects.return }}
+      survey_metadata_processed: ${{ workflow.survey_metadata_processed.return }}
+
+  - name: Persist combined latest transects as gpkg
+    id: persist_combined_transects_gpkg
+    task: persist_df
+    partial:
+      df: ${{ workflow.combined_latest_transects.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: combined_latest_transects
+      filetype: gpkg
+
+  # GeoJSON is defined as WGS84 (RFC 7946), so reproject before writing it.
+  - name: Reproject combined latest transects to epsg:4326 for geojson
+    id: combined_transects_4326
+    task: reproject_gdf
+    partial:
+      gdf: ${{ workflow.combined_latest_transects.return }}
+      target_crs: "epsg:4326"
+
+  - name: Persist combined latest transects as geojson
+    id: persist_combined_geojson
+    task: persist_df
+    partial:
+      df: ${{ workflow.combined_transects_4326.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: combined_latest_transects
+      filetype: geojson
+
+  - name: Persist combined latest survey areas as gpkg
+    id: persist_combined_areas_gpkg
+    task: persist_df
+    partial:
+      df: ${{ workflow.combined_latest_survey_areas.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: combined_latest_survey_areas
+      filetype: gpkg
+
+  - name: Reproject combined latest survey areas to epsg:4326 for geojson
+    id: combined_areas_4326
+    task: reproject_gdf
+    partial:
+      gdf: ${{ workflow.combined_latest_survey_areas.return }}
+      target_crs: "epsg:4326"
+
+  # GeoDataFrame.to_json() can't encode pandas Timestamps, so stringify datetimes first.
+  - name: Stringify datetime columns in combined survey areas for geojson
+    id: combined_areas_4326_str
+    task: stringify_datetime_columns
+    partial:
+      df: ${{ workflow.combined_areas_4326.return }}
+
+  - name: Persist combined latest survey areas as geojson
+    id: persist_combined_areas_geojson
+    task: persist_df
+    partial:
+      df: ${{ workflow.combined_areas_4326_str.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: combined_latest_survey_areas
+      filetype: geojson
+
+  - name: Persist combined metadata as csv
+    id: persist_combined_metadata
+    task: persist_df
+    partial:
+      df: ${{ workflow.combined_metadata.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: Combined_Metadata
+      filetype: csv
+
+  - name: Persist processed survey metadata as csv
+    id: persist_survey_processed
+    task: persist_df
+    partial:
+      df: ${{ workflow.survey_metadata_processed.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: Survey_Metadata_Processed
+      filetype: csv
+
+  - name: Persist quarterly survey log as csv
+    id: persist_quarterly_survey_log
+    task: persist_df
+    partial:
+      df: ${{ workflow.quarterly_survey_log.return }}
+      root_path: ${{ workflow.analysis_outputs_folder.return }}
+      filename: Quarterly_Survey_Log
+      filetype: csv
 
   # Surface persisted file paths so a reviewer can copy one into the dsc_publish workflow.
   # Deliberately does NOT use any_keyed_iterables_are_skips here: with many independent

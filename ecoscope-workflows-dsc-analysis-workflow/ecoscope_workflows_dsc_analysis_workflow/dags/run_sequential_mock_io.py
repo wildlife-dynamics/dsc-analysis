@@ -15,6 +15,7 @@ from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
+from ecoscope.platform.tasks.io import persist_df as persist_df
 from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
 from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
@@ -28,6 +29,9 @@ from ecoscope.platform.tasks.transformation import (
 )
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     filter_row_values as filter_row_values,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    append_run_date as append_run_date,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     build_output_subfolder as build_output_subfolder,
@@ -51,6 +55,9 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     get_server_name as get_server_name,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    get_server_subdomain as get_server_subdomain,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     get_survey_period_label as get_survey_period_label,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
@@ -67,6 +74,9 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     join_list_column as join_list_column,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    join_with_underscore as join_with_underscore,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     parse_df_point as parse_df_point,
@@ -90,7 +100,6 @@ from ecoscope.platform.tasks.analysis import (
 from ecoscope.platform.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
-from ecoscope.platform.tasks.io import persist_df as persist_df
 from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
@@ -129,6 +138,24 @@ from ecoscope_workflows_ext_custom.tasks.transformation import (
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     select_columns as select_columns,
 )
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    build_survey_log as build_survey_log,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    build_survey_metadata_processed as build_survey_metadata_processed,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    combine_latest_survey_areas as combine_latest_survey_areas,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    combine_survey_metadata as combine_survey_metadata,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    combine_transects as combine_transects,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
+    stringify_datetime_columns as stringify_datetime_columns,
+)
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     add_constant_column as add_constant_column,
 )
@@ -140,9 +167,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     build_slope_image as build_slope_image,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_server_subdomain as get_server_subdomain,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     get_survey_min_date as get_survey_min_date,
@@ -194,9 +218,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     flag_events_intersecting_transect as flag_events_intersecting_transect,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    join_with_underscore as join_with_underscore,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     merge_transect_lines as merge_transect_lines,
@@ -422,6 +443,48 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    master_transects_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("master_transects_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_MasterTransects",
+            **(params.get("master_transects_folder") or {}),
+        )
+        .call()
+    )
+
+    analysis_outputs_folder = (
+        task(build_output_subfolder)
+        .validate()
+        .set_task_instance_id("analysis_outputs_folder")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="AnalysisOutputs",
+            **(params.get("analysis_outputs_folder") or {}),
+        )
+        .call()
+    )
+
     connection_config = (
         task(create_connection_configs_from_ids)
         .validate()
@@ -457,6 +520,140 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("split_connection_config") or {}),
         )
         .call()
+    )
+
+    fetch_master_transects = (
+        task(fetch_transects)
+        .validate()
+        .set_task_instance_id("fetch_master_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("fetch_master_transects") or {}))
+        .mapvalues(argnames=["connection_survey"], argvalues=split_connection_config)
+    )
+
+    master_transects_survey_name = (
+        task(get_server_subdomain)
+        .validate()
+        .set_task_instance_id("master_transects_survey_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("master_transects_survey_name") or {}))
+        .mapvalues(argnames=["connection_survey"], argvalues=split_connection_config)
+    )
+
+    combine_master_transects_name = (
+        task(join_with_underscore)
+        .validate()
+        .set_task_instance_id("combine_master_transects_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            second="master_transects",
+            **(params.get("combine_master_transects_name") or {}),
+        )
+        .mapvalues(argnames=["first"], argvalues=master_transects_survey_name)
+    )
+
+    master_transects_filename = (
+        task(append_run_date)
+        .validate()
+        .set_task_instance_id("master_transects_filename")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            date_format="%Y_%m_%d", **(params.get("master_transects_filename") or {})
+        )
+        .mapvalues(argnames=["name"], argvalues=combine_master_transects_name)
+    )
+
+    zip_filename_master_transects = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("zip_filename_master_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[master_transects_filename, fetch_master_transects],
+            **(params.get("zip_filename_master_transects") or {}),
+        )
+        .call()
+    )
+
+    complete_fn_master_transects = (
+        task(filter_complete_groups)
+        .validate()
+        .set_task_instance_id("complete_fn_master_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            zipped=zip_filename_master_transects,
+            expected_length=2,
+            **(params.get("complete_fn_master_transects") or {}),
+        )
+        .call()
+    )
+
+    persist_master_transects_gpkg = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_master_transects_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=master_transects_folder,
+            filetype="gpkg",
+            **(params.get("persist_master_transects_gpkg") or {}),
+        )
+        .mapvalues(argnames=["filename", "df"], argvalues=complete_fn_master_transects)
     )
 
     retrieve_patrol_events = (
@@ -3461,6 +3658,332 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("persist_transect_lines_gpkg") or {}),
         )
         .mapvalues(argnames=["filename", "df"], argvalues=complete_fn_transect_lines_df)
+    )
+
+    combined_latest_transects = (
+        task(combine_transects)
+        .validate()
+        .set_task_instance_id("combined_latest_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            transects=fetch_master_transects,
+            crs=32736,
+            **(params.get("combined_latest_transects") or {}),
+        )
+        .call()
+    )
+
+    combined_latest_survey_areas = (
+        task(combine_latest_survey_areas)
+        .validate()
+        .set_task_instance_id("combined_latest_survey_areas")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            areas=format_transect_names,
+            crs=32736,
+            **(params.get("combined_latest_survey_areas") or {}),
+        )
+        .call()
+    )
+
+    combined_metadata = (
+        task(combine_survey_metadata)
+        .validate()
+        .set_task_instance_id("combined_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            metadata=drop_null_cols,
+            exclude_surveys=["pardamat_2024_11"],
+            **(params.get("combined_metadata") or {}),
+        )
+        .call()
+    )
+
+    survey_metadata_processed = (
+        task(build_survey_metadata_processed)
+        .validate()
+        .set_task_instance_id("survey_metadata_processed")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            survey_metadata=combined_metadata,
+            **(params.get("survey_metadata_processed") or {}),
+        )
+        .call()
+    )
+
+    quarterly_survey_log = (
+        task(build_survey_log)
+        .validate()
+        .set_task_instance_id("quarterly_survey_log")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            transects=combined_latest_transects,
+            survey_metadata_processed=survey_metadata_processed,
+            **(params.get("quarterly_survey_log") or {}),
+        )
+        .call()
+    )
+
+    persist_combined_transects_gpkg = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_combined_transects_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_latest_transects,
+            root_path=analysis_outputs_folder,
+            filename="combined_latest_transects",
+            filetype="gpkg",
+            **(params.get("persist_combined_transects_gpkg") or {}),
+        )
+        .call()
+    )
+
+    combined_transects_4326 = (
+        task(reproject_gdf)
+        .validate()
+        .set_task_instance_id("combined_transects_4326")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            gdf=combined_latest_transects,
+            target_crs="epsg:4326",
+            **(params.get("combined_transects_4326") or {}),
+        )
+        .call()
+    )
+
+    persist_combined_geojson = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_combined_geojson")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_transects_4326,
+            root_path=analysis_outputs_folder,
+            filename="combined_latest_transects",
+            filetype="geojson",
+            **(params.get("persist_combined_geojson") or {}),
+        )
+        .call()
+    )
+
+    persist_combined_areas_gpkg = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_combined_areas_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_latest_survey_areas,
+            root_path=analysis_outputs_folder,
+            filename="combined_latest_survey_areas",
+            filetype="gpkg",
+            **(params.get("persist_combined_areas_gpkg") or {}),
+        )
+        .call()
+    )
+
+    combined_areas_4326 = (
+        task(reproject_gdf)
+        .validate()
+        .set_task_instance_id("combined_areas_4326")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            gdf=combined_latest_survey_areas,
+            target_crs="epsg:4326",
+            **(params.get("combined_areas_4326") or {}),
+        )
+        .call()
+    )
+
+    combined_areas_4326_str = (
+        task(stringify_datetime_columns)
+        .validate()
+        .set_task_instance_id("combined_areas_4326_str")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_areas_4326, **(params.get("combined_areas_4326_str") or {})
+        )
+        .call()
+    )
+
+    persist_combined_areas_geojson = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_combined_areas_geojson")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_areas_4326_str,
+            root_path=analysis_outputs_folder,
+            filename="combined_latest_survey_areas",
+            filetype="geojson",
+            **(params.get("persist_combined_areas_geojson") or {}),
+        )
+        .call()
+    )
+
+    persist_combined_metadata = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_combined_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=combined_metadata,
+            root_path=analysis_outputs_folder,
+            filename="Combined_Metadata",
+            filetype="csv",
+            **(params.get("persist_combined_metadata") or {}),
+        )
+        .call()
+    )
+
+    persist_survey_processed = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_survey_processed")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=survey_metadata_processed,
+            root_path=analysis_outputs_folder,
+            filename="Survey_Metadata_Processed",
+            filetype="csv",
+            **(params.get("persist_survey_processed") or {}),
+        )
+        .call()
+    )
+
+    persist_quarterly_survey_log = (
+        task(persist_df)
+        .validate()
+        .set_task_instance_id("persist_quarterly_survey_log")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=quarterly_survey_log,
+            root_path=analysis_outputs_folder,
+            filename="Quarterly_Survey_Log",
+            filetype="csv",
+            **(params.get("persist_quarterly_survey_log") or {}),
+        )
+        .call()
     )
 
     zip_publish_paths = (
