@@ -1378,7 +1378,7 @@ workflow:
     task: build_hls_ndvi_image
     partial:
       client: ${{ workflow.gee_client.return }}
-      ndvi_window_days: null
+      ndvi_window_days: 30
       max_cloud_cover: 30
       ndvi_band_name: "NDVI_HSL"
     mapvalues:

@@ -2765,7 +2765,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             client=gee_client,
-            ndvi_window_days=None,
+            ndvi_window_days=30,
             max_cloud_cover=30,
             ndvi_band_name="NDVI_HSL",
             **(params.get("hls_ndvi_image") or {}),
