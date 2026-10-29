@@ -37,7 +37,7 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     build_output_subfolder as build_output_subfolder,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    create_connection_configs_from_ids as create_connection_configs_from_ids,
+    create_connection_configs_from_sites as create_connection_configs_from_sites,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     fetch_events as fetch_events,
@@ -91,7 +91,7 @@ from wt_task.testing import create_func_magicmock  # 🧪
 from .. import metadata as _metadata
 
 process_events_details = create_func_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_custom.tasks.io",  # 🧪
+    anchor="ecoscope.platform.tasks.io",  # 🧪
     func_name="process_events_details",  # 🧪
 )  # 🧪
 from ecoscope.platform.tasks.analysis import (
@@ -101,8 +101,12 @@ from ecoscope.platform.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
 from ecoscope.platform.tasks.io import persist_text as persist_text
+from ecoscope.platform.tasks.results import create_geojson_layer as create_geojson_layer
 from ecoscope.platform.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
+)
+from ecoscope.platform.tasks.results import (
+    create_scatterplot_layer as create_scatterplot_layer,
 )
 from ecoscope.platform.tasks.results import (
     create_single_value_widget_single_view as create_single_value_widget_single_view,
@@ -110,22 +114,14 @@ from ecoscope.platform.tasks.results import (
 from ecoscope.platform.tasks.results import (
     create_table_widget_single_view as create_table_widget_single_view,
 )
+from ecoscope.platform.tasks.results import draw_map as draw_map
 from ecoscope.platform.tasks.results import draw_table as draw_table
 from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_views
+from ecoscope.platform.tasks.results import set_base_maps as set_base_maps
 from ecoscope.platform.tasks.skip import all_geometry_are_none as all_geometry_are_none
 from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_geojson_layer as create_geojson_layer_1,
-)
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_scatterplot_layer as create_scatterplot_layer_1,
-)
-from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map_1
-from ecoscope_workflows_ext_custom.tasks.results import (
-    set_base_maps_pydeck as set_base_maps_pydeck,
-)
 from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
 )
@@ -157,9 +153,6 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import
     stringify_datetime_columns as stringify_datetime_columns,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    add_constant_column as add_constant_column,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     build_hls_ndvi_image as build_hls_ndvi_image,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
@@ -176,6 +169,9 @@ from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
     to_ee_feature_collection as to_ee_feature_collection,
+)
+from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
+    add_constant_column as add_constant_column,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
     add_off_transect_distance as add_off_transect_distance,
@@ -486,7 +482,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     connection_config = (
-        task(create_connection_configs_from_ids)
+        task(create_connection_configs_from_sites)
         .validate()
         .set_task_instance_id("connection_config")
         .handle_errors()
@@ -1058,6 +1054,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            duplicate_strategy="suffix",
             raise_if_not_found=False,
             drop_columns=["id"],
             retain_columns=[
@@ -1707,6 +1704,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            duplicate_strategy="suffix",
             drop_columns=None,
             raise_if_not_found=False,
             retain_columns=None,
@@ -1758,6 +1756,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            duplicate_strategy="suffix",
             raise_if_not_found=False,
             drop_columns=[],
             retain_columns=[],
@@ -2765,7 +2764,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             client=gee_client,
-            ndvi_window_days=30,
+            ndvi_window_days=None,
             max_cloud_cover=30,
             ndvi_band_name="NDVI_HSL",
             **(params.get("hls_ndvi_image") or {}),
@@ -4069,6 +4068,38 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["df"], argvalues=select_patrol_event_cols)
     )
 
+    field_effort_display = (
+        task(map_columns)
+        .validate()
+        .set_task_instance_id("field_effort_display")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            drop_columns=[],
+            retain_columns=[],
+            raise_if_not_found=False,
+            duplicate_strategy="suffix",
+            rename_columns={
+                "survey_date": "Survey Date",
+                "id": "Subject ID",
+                "name": "Team Member",
+                "team_size": "Team Size",
+                "distance": "Distance (km)",
+                "duration": "Duration (h)",
+                "man_hours": "Man Hours",
+            },
+            **(params.get("field_effort_display") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=field_effort)
+    )
+
     field_effort_table = (
         task(draw_table)
         .validate()
@@ -4091,7 +4122,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             },
             **(params.get("field_effort_table") or {}),
         )
-        .mapvalues(argnames=["dataframe"], argvalues=field_effort)
+        .mapvalues(argnames=["dataframe"], argvalues=field_effort_display)
     )
 
     field_effort_table_html = (
@@ -4239,6 +4270,37 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    metadata_display = (
+        task(map_columns)
+        .validate()
+        .set_task_instance_id("metadata_display")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            drop_columns=[],
+            retain_columns=[],
+            raise_if_not_found=False,
+            duplicate_strategy="suffix",
+            rename_columns={
+                "serial_number": "Serial Number",
+                "event_type": "Event Type",
+                "time": "Time",
+                "latitude": "Latitude",
+                "longitude": "Longitude",
+                "reported_by": "Reported By",
+            },
+            **(params.get("metadata_display") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=drop_null_cols)
+    )
+
     metadata_table = (
         task(draw_table)
         .validate()
@@ -4261,7 +4323,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             },
             **(params.get("metadata_table") or {}),
         )
-        .mapvalues(argnames=["dataframe"], argvalues=drop_null_cols)
+        .mapvalues(argnames=["dataframe"], argvalues=metadata_display)
     )
 
     metadata_table_html = (
@@ -4324,7 +4386,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     base_map_defs = (
-        task(set_base_maps_pydeck)
+        task(set_base_maps)
         .validate()
         .set_task_instance_id("base_map_defs")
         .handle_errors()
@@ -4358,7 +4420,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     transect_areas_layer = (
-        task(create_geojson_layer_1)
+        task(create_geojson_layer)
         .validate()
         .set_task_instance_id("transect_areas_layer")
         .handle_errors()
@@ -4372,18 +4434,19 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            tooltip_columns=None,
             data_url=None,
             layer_style={
                 "filled": True,
                 "stroked": True,
-                "get_fill_color": [34, 139, 34],
-                "get_line_color": [34, 139, 34],
+                "get_fill_color": [189, 183, 107],
+                "get_line_color": [189, 183, 107],
                 "get_line_width": 0.95,
                 "opacity": 0.55,
             },
             legend={
                 "title": "Legend",
-                "values": [{"label": "Transect Areas", "color": "#228b22"}],
+                "values": [{"label": "Transect Areas", "color": "#bdb76b"}],
             },
             **(params.get("transect_areas_layer") or {}),
         )
@@ -4391,7 +4454,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     transect_lines_layer = (
-        task(create_geojson_layer_1)
+        task(create_geojson_layer)
         .validate()
         .set_task_instance_id("transect_lines_layer")
         .handle_errors()
@@ -4405,14 +4468,15 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            tooltip_columns=None,
             data_url=None,
             layer_style={
                 "filled": True,
                 "stroked": True,
                 "get_fill_color": [0, 0, 0],
                 "get_line_color": [0, 0, 0],
-                "get_line_width": 0.95,
-                "opacity": 0.55,
+                "get_line_width": 1.75,
+                "opacity": 0.75,
             },
             legend={
                 "title": "",
@@ -4424,7 +4488,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     events_point_layer = (
-        task(create_scatterplot_layer_1)
+        task(create_scatterplot_layer)
         .validate()
         .set_task_instance_id("events_point_layer")
         .handle_errors()
@@ -4438,12 +4502,13 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            tooltip_columns=None,
             data_url=None,
             layer_style={
                 "get_fill_color": [210, 105, 30],
                 "get_line_color": [210, 105, 30],
                 "get_line_width": 0.25,
-                "get_radius": 4,
+                "get_radius": 3.25,
                 "opacity": 0.75,
                 "stroked": True,
             },
@@ -4549,7 +4614,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     survey_overview_map = (
-        task(draw_map_1)
+        task(draw_map)
         .validate()
         .set_task_instance_id("survey_overview_map")
         .handle_errors()
@@ -4562,6 +4627,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            output_type="html",
             tile_layers=base_map_defs,
             legend_style={"placement": "bottom-right"},
             static=False,

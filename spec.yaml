@@ -1,19 +1,19 @@
 id: dsc_analysis
 requirements:
   - name: ecoscope-platform
-    version: ">=2.15.0, <2.16.0"
+    version: ">=2.25.3"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.1.0rc14.*"
+    version: "0.1.5.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.0rc1.*"
+    version: "0.0.28.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-distance-sample-counts
-    version: "1.1.2.*"
+    version: "1.1.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
@@ -26,7 +26,7 @@ requirements:
 
 rjsf-overrides:
   properties:
-    connection_config.properties.entries.title: "ER"
+    connection_config.properties.entries.title: "Conservancies"
 
 task-instance-defaults:
   skipif:
@@ -113,9 +113,11 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       subfolder: AnalysisOutputs
 
-  - name:  Survey Connection Configs
+  # One entry per conservancy: its patrol types and transect groups are dropdowns filled from that entry's own
+  # connection, and turned into IDs by the task. (create_connection_configs_from_ids still takes raw IDs.)
+  - name: Connect to EarthRanger
     id: connection_config
-    task: create_connection_configs_from_ids
+    task: create_connection_configs_from_sites
 
   - name: Split connection configuration
     id: split_connection_config 
@@ -174,7 +176,7 @@ workflow:
 
   - name: Drop incomplete groups from zip_filename_master_transects
     id: complete_fn_master_transects
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_master_transects.return }}
       expected_length: 2
@@ -367,7 +369,7 @@ workflow:
   # would discard every period's data as soon as just one period mismatches.
   - name: Drop periods where connection/survey-df zip is incomplete
     id: complete_conn_survey_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_conn_survey_df.return }}
       expected_length: 2
@@ -399,6 +401,7 @@ workflow:
     id: map_survey_event_columns
     task: map_columns
     partial: 
+      duplicate_strategy: suffix
       raise_if_not_found: false
       drop_columns:
         - id 
@@ -441,7 +444,7 @@ workflow:
 
   - name: Parse list column from Team Members column
     id: parse_team_members
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.parse_list_column
+    task: parse_list_column
     partial:
       column: "Team Members"
     mapvalues:
@@ -492,7 +495,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_name_period
     id: complete_zip_name_period
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_name_period.return }}
       expected_length: 2
@@ -536,7 +539,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_survey_df
     id: complete_zip_filename_survey_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_survey_df.return }}
       expected_length: 2
@@ -572,7 +575,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_connection_metadata
     id: complete_zip_connection_metadata
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_connection_metadata.return }}
       expected_length: 2
@@ -614,7 +617,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_fe
     id: complete_zip_filename_fe
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_fe.return }}
       expected_length: 2
@@ -720,7 +723,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_patrol_events_df
     id: complete_zip_patrol_events_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_patrol_events_df.return }}
       expected_length: 2
@@ -767,6 +770,7 @@ workflow:
     id: map_patrol_df
     task: map_columns
     partial:
+      duplicate_strategy: suffix
       drop_columns: null
       raise_if_not_found: false
       retain_columns: null
@@ -809,6 +813,7 @@ workflow:
     id: normalize_transect_id
     task: map_columns
     partial:
+      duplicate_strategy: suffix
       raise_if_not_found: false
       drop_columns: []
       retain_columns: []
@@ -820,7 +825,7 @@ workflow:
 
   - name: Parse list column from Transect ID column
     id: parse_transect_id
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.transformation.parse_list_column
+    task: parse_list_column
     partial:
       column: "transect_id"
     mapvalues:
@@ -926,7 +931,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_conn_surv_name_df
     id: complete_zip_conn_surv_name_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_conn_surv_name_df.return }}
       expected_length: 2
@@ -970,7 +975,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_transect_df_crs
     id: complete_zip_transect_df_crs
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_transect_df_crs.return }}
       expected_length: 2
@@ -1022,7 +1027,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_patrol_df_crs
     id: complete_zip_patrol_df_crs
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_patrol_df_crs.return }}
       expected_length: 2
@@ -1055,7 +1060,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_patrol_transects
     id: complete_zip_patrol_transects
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_patrol_transects.return }}
       expected_length: 2
@@ -1122,7 +1127,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_est_patrol_transects
     id: complete_est_patrol_trans
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_est_patrol_transects.return }}
       expected_length: 2
@@ -1206,7 +1211,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_events_buff_trans
     id: complete_zip_events_buff_trans
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_events_buff_trans.return }}
       expected_length: 2
@@ -1244,7 +1249,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_areas_metadata
     id: complete_zip_areas_metadata
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_areas_metadata.return }}
       expected_length: 2
@@ -1324,7 +1329,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_transects_min_date
     id: complete_zip_transects_min_date
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_transects_min_date.return }}
       expected_length: 2
@@ -1368,7 +1373,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_aoi_min_date
     id: complete_zip_aoi_min_date
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_aoi_min_date.return }}
       expected_length: 2
@@ -1378,7 +1383,7 @@ workflow:
     task: build_hls_ndvi_image
     partial:
       client: ${{ workflow.gee_client.return }}
-      ndvi_window_days: 30
+      ndvi_window_days: null
       max_cloud_cover: 30
       ndvi_band_name: "NDVI_HSL"
     mapvalues:
@@ -1427,7 +1432,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_ndvi_transects
     id: complete_zip_ndvi_transects
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_ndvi_transects.return }}
       expected_length: 2
@@ -1465,7 +1470,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_ndvi_min_date
     id: complete_zip_ndvi_min_date
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_ndvi_min_date.return }}
       expected_length: 2
@@ -1513,7 +1518,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_woody_cover_image
     id: complete_zip_woody_cover_image
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_woody_cover_image.return }}
       expected_length: 2
@@ -1600,7 +1605,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_patrol_transects_df
     id: complete_zip_patrol_transects_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_patrol_transects_df.return }}
       expected_length: 2
@@ -1669,7 +1674,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_patrol_df
     id: complete_zip_filename_patrol_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_patrol_df.return }}
       expected_length: 2
@@ -1727,7 +1732,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_gpkg_df
     id: complete_zip_filename_gpkg_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_gpkg_df.return }}
       expected_length: 2
@@ -1782,7 +1787,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_transect_df
     id: complete_filename_transect_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_transect_df.return }}
       expected_length: 2
@@ -1820,7 +1825,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_lines_metadata
     id: complete_zip_lines_metadata
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_lines_metadata.return }}
       expected_length: 2
@@ -1874,7 +1879,7 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_filename_transect_lines_df
     id: complete_fn_transect_lines_df
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_filename_transect_lines_df.return }}
       expected_length: 2
@@ -2058,6 +2063,28 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.select_patrol_event_cols.return }}
 
+  # Readable headers for the dashboard table only; the CSV exports keep the original column names.
+  - name: Rename field effort columns for the table
+    id: field_effort_display
+    task: map_columns
+    partial:
+      drop_columns: []
+      retain_columns: []
+      raise_if_not_found: false
+      duplicate_strategy: suffix
+      rename_columns: {
+        "survey_date": "Survey Date",
+        "id": "Subject ID",
+        "name": "Team Member",
+        "team_size": "Team Size",
+        "distance": "Distance (km)",
+        "duration": "Duration (h)",
+        "man_hours": "Man Hours",
+      }
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.field_effort.return }}
+
   - name: Draw field effort table
     id: field_effort_table
     task: draw_table
@@ -2066,7 +2093,7 @@ workflow:
       table_config: { enable_sorting: true, enable_filtering: true, enable_download: true }
     mapvalues:
       argnames: dataframe
-      argvalues: ${{ workflow.field_effort.return }}
+      argvalues: ${{ workflow.field_effort_display.return }}
 
   - name: Persist field effort table html
     id: field_effort_table_html
@@ -2134,6 +2161,27 @@ workflow:
     partial:
       widgets: ${{ workflow.analysis_data_table_single_views.return }}
 
+  # Readable headers for the dashboard table only; the metadata CSV and the analysis keep the original names.
+  - name: Rename survey metadata columns for the table
+    id: metadata_display
+    task: map_columns
+    partial:
+      drop_columns: []
+      retain_columns: []
+      raise_if_not_found: false
+      duplicate_strategy: suffix
+      rename_columns: {
+        "serial_number": "Serial Number",
+        "event_type": "Event Type",
+        "time": "Time",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "reported_by": "Reported By",
+      }
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.drop_null_cols.return }}
+
   - name: Draw metadata table
     id: metadata_table
     task: draw_table
@@ -2142,7 +2190,7 @@ workflow:
       table_config: { enable_sorting: true, enable_filtering: true, enable_download: true }
     mapvalues:
       argnames: dataframe
-      argvalues: ${{ workflow.drop_null_cols.return }}
+      argvalues: ${{ workflow.metadata_display.return }}
 
   - name: Persist metadata table html
     id: metadata_table_html
@@ -2177,7 +2225,7 @@ workflow:
 
   - name: Map Base Layers
     id: base_map_defs
-    task: set_base_maps_pydeck
+    task: set_base_maps
 
   - name: Reproject event points to epsg:4326 for map overlay
     id: reproject_events_map
@@ -2190,47 +2238,49 @@ workflow:
 
   - name: Create polygon layer for transect areas
     id: transect_areas_layer
-    task: ecoscope_workflows_ext_custom.tasks.results.create_geojson_layer
+    task: create_geojson_layer
     skipif:
       conditions:
         - any_is_empty_df
         - any_dependency_skipped
         - all_geometry_are_none
     partial:
+      tooltip_columns: null
       data_url: null
       layer_style:
         filled: true
         stroked: true
-        get_fill_color: [34, 139, 34]
-        get_line_color: [34, 139, 34]
+        get_fill_color: [189, 183, 107]
+        get_line_color: [189, 183, 107]
         get_line_width: 0.95
         opacity: 0.55
       legend:
         title: "Legend"
         values:
           - label: Transect Areas
-            color: "#228b22"
+            color: "#bdb76b"
     mapvalues:
       argnames: geodataframe
       argvalues: ${{ workflow.format_transect_names.return }}
 
   - name: Create polyline layer for transect lines
     id: transect_lines_layer
-    task: ecoscope_workflows_ext_custom.tasks.results.create_geojson_layer
+    task: create_geojson_layer
     skipif:
       conditions:
         - any_is_empty_df
         - any_dependency_skipped
         - all_geometry_are_none
     partial:
+      tooltip_columns: null
       data_url: null
       layer_style:
         filled: true
         stroked: true
         get_fill_color: [0, 0, 0]
         get_line_color: [0, 0, 0]
-        get_line_width: 0.95
-        opacity: 0.55
+        get_line_width: 1.75
+        opacity: 0.75
       legend:
         title: ""
         values:
@@ -2242,19 +2292,20 @@ workflow:
 
   - name: Create point layer for wildlife events
     id: events_point_layer
-    task: ecoscope_workflows_ext_custom.tasks.results.create_scatterplot_layer
+    task: create_scatterplot_layer
     skipif:
       conditions:
         - any_is_empty_df
         - any_dependency_skipped
         - all_geometry_are_none
     partial:
+      tooltip_columns: null
       data_url: null
       layer_style:
         get_fill_color: [210, 105, 30]
         get_line_color: [210, 105, 30]
         get_line_width: 0.25
-        get_radius : 4
+        get_radius : 3.25
         opacity: 0.75
         stroked: true
       legend:
@@ -2322,15 +2373,16 @@ workflow:
   # discard every key's data as soon as just one key mismatches.
   - name: Drop incomplete groups from zip_layers_with_viewstate
     id: complete_layers_viewstate
-    task: ecoscope_workflows_ext_distance_sample_counts.tasks.io.filter_complete_groups
+    task: filter_complete_groups
     partial:
       zipped: ${{ workflow.zip_layers_with_viewstate.return }}
       expected_length: 2
 
   - name: Draw survey overview map
     id: survey_overview_map
-    task: ecoscope_workflows_ext_custom.tasks.results.draw_map
+    task: draw_map
     partial:
+      output_type: html
       tile_layers: ${{ workflow.base_map_defs.return }}
       legend_style:
         placement: "bottom-right"
@@ -2384,8 +2436,6 @@ workflow:
         - ${{ workflow.survey_overview_map_widget.return }}
         - ${{ workflow.field_effort_table_widget.return }}        
         - ${{ workflow.metadata_grouped_table_widget.return }}
-        
-        # - ${{ workflow.analysis_data_table_widget.return }}
 
       time_range: ${{ workflow.time_range.return}}
       groupers: ${{ workflow.groupers.return }}

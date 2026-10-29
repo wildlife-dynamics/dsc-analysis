@@ -24,32 +24,28 @@
       "additionalProperties": false,
       "properties": {
         "since": {
+          "description": "The start time",
           "format": "date-time",
           "title": "Since",
-          "type": "string",
-          "description": "The start time"
+          "type": "string"
         },
         "until": {
+          "description": "The end time",
           "format": "date-time",
           "title": "Until",
-          "type": "string",
-          "description": "The end time"
+          "type": "string"
         },
         "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
+          "$ref": "#/$defs/TimezoneInfo",
           "default": null,
           "title": "Timezone"
         },
         "time_format": {
           "default": "%d %b %Y %H:%M:%S",
-          "title": "Time Format",
-          "type": "string",
           "description": "The time format",
-          "ecoscope:advanced": true
+          "ecoscope:advanced": true,
+          "title": "Time Format",
+          "type": "string"
         }
       },
       "required": [
@@ -65,8 +61,8 @@
       "properties": {
         "data_source": {
           "$ref": "#/$defs/GoogleEarthEngineConnection",
-          "title": "",
-          "description": "Select one of your configured data sources."
+          "description": "Select one of your configured data sources.",
+          "title": ""
         }
       },
       "required": [
@@ -79,10 +75,11 @@
       "additionalProperties": false,
       "properties": {
         "entries": {
+          "description": "One entry per conservancy: pick its connection, then its patrol types and transects.",
           "items": {
-            "$ref": "#/$defs/ConnectionIdsEntry"
+            "$ref": "#/$defs/SurveySiteEntry"
           },
-          "title": "ER",
+          "title": "Conservancies",
           "type": "array"
         }
       },
@@ -90,7 +87,7 @@
         "entries"
       ],
       "type": "object",
-      "title": "Survey Connection Configs"
+      "title": "Connect to EarthRanger"
     },
     "base_map_defs": {
       "additionalProperties": false,
@@ -100,16 +97,19 @@
             {
               "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
               "opacity": 1,
-              "max_zoom": 20
+              "max_zoom": 20,
+              "min_zoom": 0
             },
             {
               "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
               "opacity": 0.5,
-              "max_zoom": 20
+              "max_zoom": 20,
+              "min_zoom": 0
             }
           ],
+          "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
+          "ecoscope:advanced": true,
           "items": {
-            "title": "Base Layer",
             "anyOf": [
               {
                 "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
@@ -126,8 +126,9 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Layer Opacity",
                     "type": "number"
                   }
@@ -150,8 +151,9 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Layer Opacity",
                     "type": "number"
                   }
@@ -174,8 +176,9 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Layer Opacity",
                     "type": "number"
                   }
@@ -198,37 +201,14 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Layer Opacity",
                     "type": "number"
                   }
                 },
                 "title": "Terrain",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "LandDx",
                 "type": "object"
               },
               {
@@ -246,8 +226,9 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Layer Opacity",
                     "type": "number"
                   }
@@ -268,8 +249,9 @@
                   "opacity": {
                     "default": 1,
                     "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
+                    "ecoscope:advanced": true,
+                    "maximum": 1,
+                    "minimum": 0,
                     "title": "Custom Layer Opacity",
                     "type": "number"
                   },
@@ -289,12 +271,11 @@
                 "title": "Custom Layer (Advanced)",
                 "type": "object"
               }
-            ]
+            ],
+            "title": "Base Layer"
           },
           "title": " ",
-          "type": "array",
-          "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
-          "ecoscope:advanced": true
+          "type": "array"
         }
       },
       "type": "object",
@@ -344,38 +325,6 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
-    "ConnectionIdsEntry": {
-      "properties": {
-        "connection": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/EarthRangerConnection"
-            }
-          ],
-          "description": "Select one of your configured data sources.",
-          "title": ""
-        },
-        "patrol_id": {
-          "title": "Patrol Id",
-          "type": "string"
-        },
-        "erSpatialTransectsGroupId": {
-          "description": "EarthRanger spatial group ID(s) that contain the transect features.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Transects Group ID",
-          "type": "array"
-        }
-      },
-      "required": [
-        "connection",
-        "patrol_id",
-        "erSpatialTransectsGroupId"
-      ],
-      "title": "ConnectionIdsEntry",
-      "type": "object"
-    },
     "EarthRangerConnection": {
       "properties": {
         "name": {
@@ -387,6 +336,61 @@
         "name"
       ],
       "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "SurveySiteEntry": {
+      "description": "One conservancy in the analysis, with its patrol types and transect groups picked from its own site.",
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "description": "Select one of your configured data sources.",
+          "title": ""
+        },
+        "patrol_types": {
+          "default": [
+            "distance_count"
+          ],
+          "description": "The site's Distance Count patrol type(s).",
+          "ecoscope:transform": [
+            {
+              "transformer": "EarthRangerEnumResolver",
+              "transformer_kws": {
+                "depends_on": "properties.connection.properties.name",
+                "type": "patrol_type"
+              }
+            }
+          ],
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Patrol types",
+          "type": "array"
+        },
+        "transect_groups": {
+          "default": [
+            "DSC_Transects"
+          ],
+          "description": "The feature group(s) holding the transects. Leave empty to skip this site.",
+          "ecoscope:transform": [
+            {
+              "transformer": "EarthRangerEnumResolver",
+              "transformer_kws": {
+                "depends_on": "properties.connection.properties.name",
+                "type": "spatial_feature_group"
+              }
+            }
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Transect groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "connection"
+      ],
       "type": "object"
     }
   },

@@ -42,7 +42,7 @@ TEST_CASES_YAML = ARTIFACTS.parent / "test-cases.yaml"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-dsc-analysis-workflow"
 RESULTS_ENV_VAR = "ECOSCOPE_WORKFLOWS_RESULTS"
 IO_TASKS_IMPORTABLE_REFERENCES = [
-    "ecoscope_workflows_ext_custom.tasks.io.process_events_details",
+    "ecoscope.platform.tasks.io.process_events_details",
 ]
 
 yaml = ruamel.yaml.YAML(typ="safe")

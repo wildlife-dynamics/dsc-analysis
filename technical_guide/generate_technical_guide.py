@@ -137,7 +137,8 @@ story += [
       "wildlife survey data from EarthRanger and produces structured, analysis-ready "
       "datasets for use in population density modelling. The workflow supports "
       "<b>multiple surveys</b> in a single run, each defined by its own EarthRanger "
-      "connection, patrol type, survey time window, and transect spatial group. "
+      "connection, patrol type(s), and transect feature group(s), picked by name "
+      "from that conservancy's own site. "
       "Each survey is further split automatically into its <b>detected activity "
       "periods</b>, so a site visited in e.g. both February and June produces two "
       "independent, period-tagged output sets rather than one combined one."),
@@ -196,10 +197,10 @@ story += [
     make_table(
         [
             ["Package", "Version", "Channel"],
-            ["ecoscope-platform",                      ">=2.15.0, <2.16.0", "ecoscope-workflows"],
-            ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*",  "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*",   "ecoscope-workflows-custom"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.11.*", "ecoscope-workflows-custom"],
+            ["ecoscope-platform",                      ">=2.25.3",     "ecoscope-workflows"],
+            ["ecoscope-workflows-ext-custom",          "0.1.5.*",      "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-ste",             "0.0.28.*",     "ecoscope-workflows-custom"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.1.4.*", "ecoscope-workflows-custom"],
             ["pydeck",                                  "0.9.2", "conda-forge"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0", "conda-forge"],
         ],
@@ -219,10 +220,11 @@ story += [
     sp(6),
     h2("2.3  EarthRanger connections"),
     p("One EarthRanger connection is required <i>per survey</i>. Each entry in "
-      "<b>connection_config</b> pairs an EarthRanger server and patrol type ID "
-      "with one or more survey definitions (survey name, time window, and "
-      "transect spatial group ID). Connections are split and distributed to "
-      "parallel per-survey pipelines via <b>split_connection_configs</b>."),
+      "<b>connection_config</b> pairs an EarthRanger connection with the patrol "
+      "type(s) and transect feature group(s) to use on that site, chosen by name. "
+      "<b>create_connection_configs_from_sites</b> looks up their IDs on each site, "
+      "and the connections are then split and distributed to parallel per-survey "
+      "pipelines via <b>split_connection_configs</b>."),
     sp(6),
     h2("2.4  EarthRanger data requirements"),
     p("The workflow expects the following event types to be present in EarthRanger "
@@ -260,36 +262,47 @@ story += [
             ["Parameter", "Description"],
             ["workflow_details",  "Human-readable name and optional description for this "
                                   "workflow run — used for dashboard registration"],
-            ["time_range",        "Required on all Ecoscope workflows. Used for timestamp "
-                                  "display and UTC conversion only — does not filter which "
-                                  "patrol events are fetched. Set broadly to cover all surveys "
-                                  "in the run. Each survey's own time window controls data fetching."],
+            ["time_range",        "Required on all Ecoscope workflows. Controls which patrol "
+                                  "events are fetched: one shared since / until window applied "
+                                  "to every survey in the run. Also used for timestamp display "
+                                  "and UTC conversion."],
             ["gee_client",        "Google Earth Engine service account connection"],
-            ["connection_config", "Array of EarthRanger connection entries, one per survey "
-                                  "(see Section 3.2)"],
+            ["connection_config", "Conservancies: an array of EarthRanger connection "
+                                  "entries, one per survey (see Section 3.2)"],
         ],
         [4*cm, W - 4*cm],
     ),
     sp(6),
     h2("3.2  Connection config entry (per survey)"),
-    p("Each entry in <b>connection_config</b> defines one EarthRanger site and "
-      "one or more surveys to run against it:"),
+    p("Each entry in <b>connection_config</b> (<b>SurveySiteEntry</b>, shown in the "
+      "form as <b>Conservancies</b> under <b>Connect to EarthRanger</b>) defines one "
+      "EarthRanger site:"),
     make_table(
         [
             ["Field", "Type", "Description"],
-            ["earthranger.server",     "Connection", "EarthRanger data source connection"],
-            ["earthranger.patrol_type_id", "String",
-             "Numeric or UUID identifier for the patrol type containing DSC surveys"],
-            ["surveys[].surveyName",   "String",  "Unique name for this survey (used as output filename prefix)"],
-            ["surveys[].time_range",   "Object",  "Survey-specific data fetch window. Patrol events within this "
-                                                  "since / until range are retrieved from EarthRanger for this "
-                                                  "survey. This is the field that controls which data is pulled — "
-                                                  "not the top-level time_range."],
-            ["surveys[].erSpatialTransectsGroupId", "String",
-             "EarthRanger spatial group ID that contains the transect line features"],
+            ["connection",      "Connection", "EarthRanger data source connection"],
+            ["patrol_types",    "List of strings", "Patrol type values, e.g. distance_count "
+                                "(the default). At least one; several are all fetched."],
+            ["transect_groups", "List of strings", "Feature group names holding the transect "
+                                "lines, e.g. DSC_Transects (the default). Empty skips the site."],
         ],
-        [4*cm, 2*cm, W - 6*cm],
+        [3.2*cm, 2.8*cm, W - 6*cm],
     ),
+    sp(4),
+    p("<b>patrol_types</b> and <b>transect_groups</b> are dropdowns filled from the "
+      "entry's own connection: each declares an ecoscope-rjsf "
+      "<b>EarthRangerEnumResolver</b> transform (types patrol_type and "
+      "spatial_feature_group) with depends_on <b>properties.connection.properties.name</b>, "
+      "so in a list of entries each one lists its own site's patrol types and feature "
+      "groups. Runners without the resolver show plain text inputs."),
+    p("<b>create_connection_configs_from_sites</b> turns the names into IDs on each "
+      "site (GET activity/patrols/types and spatialfeaturegroup). IDs are also accepted "
+      "and passed through. A name the site lacks stops the run with a message listing "
+      "what the site has. An entry with no transect groups yields a SkipSentinel, so "
+      "downstream steps skip that site."),
+    note("Earlier revisions took a raw patrol type ID and spatial group ID per entry "
+         "(create_connection_configs_from_ids). That task is still available in the "
+         "package for older specs."),
     PageBreak(),
 ]
 
@@ -306,8 +319,8 @@ story += [
       "<b>mapvalues</b> to fan out over this list in parallel."),
     sp(6),
     h2("4.2  Patrol events"),
-    p("For each survey, <b>fetch_patrol_events</b> retrieves all patrols matching "
-      "the configured patrol type ID within the survey time window. "
+    p("For each survey, <b>fetch_patrol_events</b> retrieves all patrols of the "
+      "chosen patrol type(s) within the workflow's time range. "
       "The resulting patrol DataFrame is indexed on the <b>id</b> column via "
       "<b>set_dataframe_index</b> to enable subsequent join operations."),
     sp(6),
@@ -324,7 +337,7 @@ story += [
     sp(6),
     h2("4.4  Patrol transects"),
     p("Transect lines are fetched per survey period via <b>fetch_transects</b>, "
-      "using the spatial group ID specified in the survey's connection config. "
+      "using the IDs of the transect group(s) chosen for the survey. "
       "Because a survey's transect geometry does not change between periods, the "
       "same transects are fetched once per period (duplicated across periods of the "
       "same survey) so that each period's output is self-contained. The transects "
@@ -485,7 +498,8 @@ story += [
              "match is found for individual members, the recorder name is matched "
              "against subjects as a fallback."],
             ["3. Observation window", "Each survey_date is assigned a fixed daily "
-             "observation window (04:00–13:00 UTC) used to bound the GPS "
+             "observation window (03:00–14:00 UTC, i.e. 06:00–17:00 East Africa "
+             "Time) used to bound the GPS "
              "observation fetch for that date."],
             ["4. Track retrieval", "Subject GPS observations are fetched per "
              "survey_date via get_subject_observations and converted to "
@@ -493,7 +507,8 @@ story += [
              "relocations_to_trajectory), filtered to segments between 0.1 m and "
              "100 km, 1 second and 6 hours, and 1–100 km/h."],
             ["5. Distance/duration summary", "Trajectory segments are summarised "
-             "per subject/day (summarize_df) into total distance (km) and total "
+             "per subject/day (summarize_df with two StatSummaryParam sums, "
+             "converting m to km and s to h) into total distance (km) and total "
              "duration (h), then merged back onto the roster."],
             ["6. Man-hours", "man_hours is computed as team_size × duration "
              "for each subject/day row."],
@@ -1009,10 +1024,15 @@ story += [
     make_table(
         [
             ["Table", "Source data", "Notes"],
-            ["Field Effort",   "field_effort.return",
-             "Same DataFrame persisted as field_effort.csv (Section 5.4)"],
-            ["Survey Metadata", "drop_null_cols.return",
-             "Same DataFrame persisted as analysis_metadata.csv (Section 5.1)"],
+            ["Field Effort",   "field_effort_display.return",
+             "field_effort.return (persisted as field_effort.csv, Section 5.4) with "
+             "readable headers: Survey Date, Subject ID, Team Member, Team Size, "
+             "Distance (km), Duration (h), Man Hours"],
+            ["Survey Metadata", "metadata_display.return",
+             "drop_null_cols.return (persisted as analysis_metadata.csv, Section 5.1) "
+             "with readable headers: Serial Number, Event Type, Time, Latitude, "
+             "Longitude, Reported By (Transect ID, Team Members and Number of "
+             "Observers unchanged)"],
             ["Analysis Data",  "select_analysis_table_cols.return",
              "A dedicated column subset of select_patrol_event_cols.return "
              "(the analysis_data.csv source) with geometry columns dropped for "
@@ -1020,6 +1040,10 @@ story += [
         ],
         [3.2*cm, 4*cm, W - 7.2*cm],
     ),
+    note("The header renames (field_effort_display, metadata_display) are map_columns "
+         "steps that feed only the dashboard tables; the CSV exports keep the original "
+         "column names. raise_if_not_found is false, so a column already dropped "
+         "(e.g. by drop_null_columns) is simply skipped."),
     note("select_analysis_table_cols uses raise_on_missing: false, so a period "
          "missing one of the listed columns (e.g. other_species) still renders a "
          "table with the remaining columns rather than failing."),
@@ -1035,10 +1059,10 @@ story += [
     make_table(
         [
             ["Package", "Version pinned"],
-            ["ecoscope-platform",                      ">=2.15.0, <2.16.0"],
-            ["ecoscope-workflows-ext-custom",          "0.1.0rc14.*"],
-            ["ecoscope-workflows-ext-ste",             "0.0.0rc1.*"],
-            ["ecoscope-workflows-ext-distance-sample-counts", "1.0.11.*"],
+            ["ecoscope-platform",                      ">=2.25.3"],
+            ["ecoscope-workflows-ext-custom",          "0.1.5.*"],
+            ["ecoscope-workflows-ext-ste",             "0.0.28.*"],
+            ["ecoscope-workflows-ext-distance-sample-counts", "1.1.4.*"],
             ["pydeck",                                  "0.9.2"],
             ["opentelemetry-sdk",                       ">=1.20.0, <2.0.0"],
         ],

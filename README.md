@@ -25,8 +25,8 @@ Before running the workflow, ensure you have:
   - `distancecountpatrol_rep` — survey metadata (transect ID, team, observer count)
   - `distancecountwildlife_rep` — wildlife observations (species, count, distance, radial angle)
 - A **Google Earth Engine** service account configured in Ecoscope (used to retrieve NDVI, slope, and woody cover imagery)
-- The **EarthRanger spatial group ID** for each survey's transect lines
-- The **patrol type ID** (numeric or UUID) for the DSC patrol type in EarthRanger
+- A **feature group** holding each conservancy's transect lines (named `DSC_Transects` on sites set up with the shared DSC schema)
+- A **patrol type** for the DSC surveys (`distance_count` on sites set up with the shared DSC schema)
 - Team members recorded on each patrol should correspond to named **subjects/trackers** in EarthRanger, so their GPS tracks can be used to compute field effort
 
 ---
@@ -86,17 +86,23 @@ Select your Google Earth Engine service account from the **Data Source** dropdow
 
 ---
 
-### Step 5 — Configure EarthRanger Connection and Survey Details
+### Step 5 — Choose the Conservancies
 
-Scroll down to **Configure EarthRanger and Survey Details**. Click **+ Add** to add a survey entry — each entry is one independent survey, fetched using the shared Time Range from Step 3.
+Scroll down to **Connect to EarthRanger**. Under **Conservancies**, click **+ Add** to add a conservancy — each entry is one independent survey, fetched using the shared Time Range from Step 3.
 
-| Field | Description |
-|-------|-------------|
-| Data Source | Select the EarthRanger connection for this survey (e.g. `Amboseli Trust for Elephants`) |
-| Patrol Type ID | The numeric or UUID identifier for the DSC patrol type in EarthRanger |
-| Transects Group ID | The EarthRanger spatial group ID(s) that contain this survey's transect line features. Click **+ Add** within this field to add more than one group ID if the survey's transects span multiple spatial groups |
+| Field | Description | Default |
+|-------|-------------|---------|
+| Data Source | The EarthRanger connection for this conservancy (e.g. `Mara North Conservancy`) | — |
+| Patrol types | The conservancy's DSC patrol type(s). A dropdown of **this conservancy's own** patrol types, loaded from the connection chosen above; pick more than one if its surveys were logged under several | `distance_count` |
+| Transect groups | The feature group(s) holding this conservancy's transect lines. A dropdown of this conservancy's feature groups that have features. Leave it empty to skip the conservancy in this run | `DSC_Transects` |
 
-> To configure another survey, click the outer **+ Add** button again to add a new entry — whether it points at the same or a different EarthRanger connection, each entry runs as an independent survey.
+Each entry's dropdowns follow that entry's own connection, so two conservancies in the same run each list their own patrol types and feature groups. You pick names; the workflow looks up the matching IDs on each site when it runs, so there are no IDs to copy from EarthRanger.
+
+> **Sites set up with the shared DSC schema** need nothing more than the Data Source: the defaults match. **Sites set up earlier** may use other names (e.g. a `DSC_Transects_MAY2026` group) — pick theirs from the dropdowns.
+
+> If a conservancy has no patrol type or feature group with the chosen name, the run stops with a message naming the ones it does have, e.g. *"Enonkishu has no patrol type 'distance_count'. It has: distance_count_old"*.
+
+> To add another conservancy, click the outer **+ Add** button again. Two entries can point at the same connection; each runs as an independent survey.
 
 ---
 
@@ -104,13 +110,13 @@ Scroll down to **Configure EarthRanger and Survey Details**. Click **+ Add** to 
 
 Once all parameters are configured, click **Submit**. For each survey the workflow will:
 
-1. Fetch patrol events matching the configured patrol type ID and the workflow's Time Range from EarthRanger.
+1. Look up the IDs of the chosen patrol types and transect groups on the conservancy's site, then fetch patrol events of those patrol types within the workflow's Time Range from EarthRanger.
 2. Split the survey's patrol events into their detected activity periods — each period is processed as an independent branch, tagged with a `{survey}_{yyyy}_{mm}` label.
 3. Fetch transect lines from the configured EarthRanger spatial group, once per survey period.
 4. Retrieve individual wildlife observation events from the patrol event IDs.
 5. Process and normalise survey metadata events — extract transect ID, team members, and observer count.
 6. Propagate metadata fields to wildlife observation rows using backward/forward fill within each patrol.
-7. Compute field effort per team member — daily distance travelled, duration, and man-hours, from EarthRanger subject GPS tracks.
+7. Compute field effort per team member — daily distance travelled, duration, and man-hours, from EarthRanger subject GPS tracks recorded between 03:00 and 14:00 UTC (06:00–17:00 East Africa Time) on each survey day.
 8. Reproject events and transects to a UTM coordinate system for metric distance calculations.
 9. Calculate the perpendicular distance from each observer position to the transect centreline (`off_transect_dist`).
 10. Estimate the true animal position from each observation's radial angle and distance to centre (`dist_to_centre`).
@@ -153,8 +159,10 @@ In addition to the files above, each run assembles an **interactive dashboard** 
 | Total Effort (hours) | Stat tile | Sum of field effort `duration` for the period |
 | Number of Transects Surveyed | Stat tile | Count of distinct transects present in the period |
 | Survey Overview Map | Map | Transect areas (buffered corridor), transect lines, and wildlife event points, auto-framed to the survey's extent |
-| Field Effort | Table | Sortable, filterable, downloadable copy of the field effort data |
-| Survey Metadata | Table | Sortable, filterable, downloadable copy of the analysis metadata |
+| Field Effort | Table | Sortable, filterable, downloadable copy of the field effort data, with readable headers: Survey Date, Subject ID, Team Member, Team Size, Distance (km), Duration (h), Man Hours |
+| Survey Metadata | Table | Sortable, filterable, downloadable copy of the analysis metadata, with readable headers: Serial Number, Event Type, Time, Latitude, Longitude, Reported By, Transect ID, Team Members, Number of Observers |
 | Analysis Data | Table | Sortable, filterable, downloadable copy of the analysis data (geometry columns omitted) |
+
+> The readable headers apply to the dashboard tables only. The CSV files keep the original column names (`survey_date`, `man_hours`, `serial_number`, …), so scripts reading them don't need changing.
 
 > Earlier revisions of this workflow shipped with an empty dashboard — a "files ready to publish" widget was built but never attached to it. All seven widgets above are now wired in and populate automatically on every run.

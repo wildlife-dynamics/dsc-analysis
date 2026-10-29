@@ -339,8 +339,8 @@
       </ul>
     </li>
     <li>A <strong>Google Earth Engine</strong> service account configured in Ecoscope (for NDVI, slope, and woody cover imagery)</li>
-    <li>The <strong>EarthRanger spatial group ID</strong> for each survey's transect lines</li>
-    <li>The <strong>patrol type ID</strong> (numeric or UUID) for the DSC patrol type in EarthRanger</li>
+    <li>A <strong>feature group</strong> holding each conservancy's transect lines (named <code>DSC_Transects</code> on sites set up with the shared DSC schema)</li>
+    <li>A <strong>patrol type</strong> for the DSC surveys (<code>distance_count</code> on sites set up with the shared DSC schema)</li>
     <li>Team members recorded on each patrol should correspond to named <strong>subjects/trackers</strong> in EarthRanger, so their GPS tracks can be used to compute field effort</li>
   </ul>
 
@@ -446,41 +446,66 @@
   <div class="config-step">
     <div class="config-step-header">
       <div class="num">5</div>
-      <h3>Configure EarthRanger Connection and Survey Details</h3>
+      <h3>Choose the Conservancies</h3>
     </div>
     <div class="config-step-body">
       <p>
-        Scroll down to <strong>Configure EarthRanger and Survey Details</strong>. Click
-        <strong>+ Add</strong> to add a survey entry — each entry is one independent survey,
+        Scroll down to <strong>Connect to EarthRanger</strong>. Under <strong>Conservancies</strong>,
+        click <strong>+ Add</strong> to add a conservancy — each entry is one independent survey,
         fetched using the shared Time Range from Step 3.
       </p>
 
       <table>
-        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <thead><tr><th>Field</th><th>Description</th><th>Default</th></tr></thead>
         <tbody>
           <tr>
             <td>Data Source</td>
-            <td>Select the EarthRanger connection for this survey (e.g. <code>Amboseli Trust for Elephants</code>)</td>
+            <td>The EarthRanger connection for this conservancy (e.g. <code>Mara North Conservancy</code>)</td>
+            <td>—</td>
           </tr>
           <tr>
-            <td>Patrol Type ID</td>
-            <td>The numeric or UUID identifier for the DSC patrol type in EarthRanger</td>
-          </tr>
-          <tr>
-            <td>Transects Group ID</td>
+            <td>Patrol types</td>
             <td>
-              The EarthRanger spatial group ID(s) that contain this survey's transect line
-              features. Click <strong>+ Add</strong> within this field to add more than one
-              group ID if the survey's transects span multiple spatial groups
+              The conservancy's DSC patrol type(s). A dropdown of <strong>this conservancy's own</strong>
+              patrol types, loaded from the connection chosen above; pick more than one if its
+              surveys were logged under several
             </td>
+            <td><code>distance_count</code></td>
+          </tr>
+          <tr>
+            <td>Transect groups</td>
+            <td>
+              The feature group(s) holding this conservancy's transect lines. A dropdown of this
+              conservancy's feature groups that have features. Leave it empty to skip the
+              conservancy in this run
+            </td>
+            <td><code>DSC_Transects</code></td>
           </tr>
         </tbody>
       </table>
 
+      <p>
+        Each entry's dropdowns follow that entry's own connection, so two conservancies in the same
+        run each list their own patrol types and feature groups. You pick names; the workflow looks
+        up the matching IDs on each site when it runs, so there are no IDs to copy from EarthRanger.
+      </p>
+
       <div class="callout">
-        <strong>Multiple surveys:</strong> To configure another survey, click the outer
-        <strong>+ Add</strong> button again to add a new entry — whether it points at the
-        same or a different EarthRanger connection, each entry runs as an independent survey.
+        <strong>Sites set up with the shared DSC schema</strong> need nothing more than the Data
+        Source: the defaults match. <strong>Sites set up earlier</strong> may use other names (e.g. a
+        <code>DSC_Transects_MAY2026</code> group) — pick theirs from the dropdowns.
+      </div>
+
+      <div class="callout">
+        <strong>Name not found:</strong> if a conservancy has no patrol type or feature group with the
+        chosen name, the run stops with a message naming the ones it does have, e.g.
+        <em>"Enonkishu has no patrol type 'distance_count'. It has: distance_count_old"</em>.
+      </div>
+
+      <div class="callout">
+        <strong>Multiple conservancies:</strong> To add another conservancy, click the outer
+        <strong>+ Add</strong> button again. Two entries can point at the same connection; each runs
+        as an independent survey.
       </div>
     </div>
   </div>
@@ -493,13 +518,13 @@
   <p>Once all parameters are configured, click <strong>Submit</strong>. For each survey the workflow will:</p>
 
   <ol class="run-steps">
-    <li>Fetch patrol events matching the configured patrol type ID and the workflow's Time Range from EarthRanger.</li>
+    <li>Look up the IDs of the chosen patrol types and transect groups on the conservancy's site, then fetch patrol events of those patrol types within the workflow's Time Range from EarthRanger.</li>
     <li>Split the survey's patrol events into their detected activity periods — each period is processed as an independent branch, tagged with a <code>{survey}_{yyyy}_{mm}</code> label.</li>
     <li>Fetch transect lines from the configured EarthRanger spatial group, once per survey period.</li>
     <li>Retrieve individual wildlife observation events from the patrol event IDs.</li>
     <li>Process and normalise survey metadata events — extract transect ID, team members, and observer count.</li>
     <li>Propagate metadata fields to wildlife observation rows using backward/forward fill within each patrol.</li>
-    <li>Compute field effort per team member — daily distance travelled, duration, and man-hours, from EarthRanger subject GPS tracks.</li>
+    <li>Compute field effort per team member — daily distance travelled, duration, and man-hours, from EarthRanger subject GPS tracks recorded between 03:00 and 14:00 UTC (06:00–17:00 East Africa Time) on each survey day.</li>
     <li>Reproject events and transects to a UTM coordinate system for metric distance calculations.</li>
     <li>Calculate the perpendicular distance from each observer position to the transect centreline (<code>off_transect_dist</code>).</li>
     <li>Estimate the true animal position from each observation's radial angle and distance to centre (<code>dist_to_centre</code>).</li>
@@ -627,11 +652,17 @@
       <tr><td>Total Effort (hours)</td><td>Stat tile</td><td>Sum of field effort <code>duration</code> for the period</td></tr>
       <tr><td>Number of Transects Surveyed</td><td>Stat tile</td><td>Count of distinct transects present in the period</td></tr>
       <tr><td>Survey Overview Map</td><td>Map</td><td>Transect areas (buffered corridor), transect lines, and wildlife event points, auto-framed to the survey's extent</td></tr>
-      <tr><td>Field Effort</td><td>Table</td><td>Sortable, filterable, downloadable copy of the field effort data</td></tr>
-      <tr><td>Survey Metadata</td><td>Table</td><td>Sortable, filterable, downloadable copy of the analysis metadata</td></tr>
+      <tr><td>Field Effort</td><td>Table</td><td>Sortable, filterable, downloadable copy of the field effort data, with readable headers: Survey Date, Subject ID, Team Member, Team Size, Distance (km), Duration (h), Man Hours</td></tr>
+      <tr><td>Survey Metadata</td><td>Table</td><td>Sortable, filterable, downloadable copy of the analysis metadata, with readable headers: Serial Number, Event Type, Time, Latitude, Longitude, Reported By, Transect ID, Team Members, Number of Observers</td></tr>
       <tr><td>Analysis Data</td><td>Table</td><td>Sortable, filterable, downloadable copy of the analysis data (geometry columns omitted)</td></tr>
     </tbody>
   </table>
+
+  <div class="callout">
+    <strong>Headers:</strong> The readable headers apply to the dashboard tables only. The CSV files
+    keep the original column names (<code>survey_date</code>, <code>man_hours</code>,
+    <code>serial_number</code>, …), so scripts reading them don't need changing.
+  </div>
 
   <div class="callout">
     <strong>Note:</strong> Earlier revisions of this workflow shipped with an empty dashboard — a
