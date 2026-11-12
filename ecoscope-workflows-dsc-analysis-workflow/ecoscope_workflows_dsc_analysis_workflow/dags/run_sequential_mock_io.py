@@ -2811,6 +2811,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             dry_season_start_month=7,
             dry_season_end_month=9,
             woody_cover_band_name="WoodyCover",
+            max_lookback_years=3,
             **(params.get("woody_cover_image") or {}),
         )
         .mapvalues(argnames=["aoi", "since"], argvalues=complete_zip_aoi_min_date)
