@@ -89,6 +89,19 @@
       "type": "object",
       "title": "Connect to EarthRanger"
     },
+    "woody_cover_image": {
+      "additionalProperties": false,
+      "properties": {
+        "max_lookback_years": {
+          "default": 2,
+          "title": "Max Lookback Years",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Build palsar woody cover image"
+    },
     "base_map_defs": {
       "additionalProperties": false,
       "properties": {
@@ -414,6 +427,7 @@
       "time_range",
       "gee_client",
       "connection_config",
+      "woody_cover_image",
       "base_map_defs"
     ]
   },
