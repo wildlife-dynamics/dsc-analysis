@@ -44,6 +44,7 @@ from ecoscope.platform.tasks.skip import (
 )
 from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
+from ecoscope.platform.tasks.transformation import map_values as map_values
 from ecoscope.platform.tasks.transformation import (
     normalize_json_column as normalize_json_column,
 )
@@ -854,6 +855,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "distance_count_wildlife_sighting",
                 "distancecountpatrol_rep",
                 "distance_count_patrol_metadata",
+                "distance_count",
             ],
             **(params.get("relevant_event_types") or {}),
         )
@@ -1054,6 +1056,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "event_details__Team Members",
                 "event_details__Number_of_observers",
                 "event_details__Number of Observers",
+                "event_details__transect_id",
+                "event_details__team_members",
+                "event_details__number_of_observers",
             ],
             rename_columns={
                 "time": "time",
@@ -1072,6 +1077,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "event_details__Number of Observers": "Number of Observers",
                 "event_details__Team Members": "Team Members",
                 "event_details__Transect ID": "Transect ID",
+                "event_details__transect_id": "Transect ID",
+                "event_details__team_members": "Team Members",
+                "event_details__number_of_observers": "Number of Observers",
             },
             **(params.get("map_survey_event_columns") or {}),
         )
@@ -2071,6 +2079,43 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["df"], argvalues=normalize_transect_names_utm)
     )
 
+    alias_transect_names = (
+        task(map_values)
+        .validate()
+        .set_task_instance_id("alias_transect_names")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column_name="name",
+            missing_values="preserve",
+            replacement=None,
+            value_map={
+                "oc_1": "olchoro_1",
+                "oc_2": "olchoro_2",
+                "oc_3": "olchoro_3",
+                "oc_4": "olchoro_4",
+                "oc_5": "olchoro_5",
+                "oc_6": "olchoro_6",
+                "oc_7": "olchoro_7",
+                "oc_8": "olchoro_8",
+                "oc_9": "olchoro_9",
+                "oc_10": "olchoro_10",
+                "oc_11": "olchoro_11",
+                "oc_12": "olchoro_12",
+                "oc_13": "olchoro_13",
+            },
+            **(params.get("alias_transect_names") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=normalize_transect_underscores)
+    )
+
     zip_patrol_df_crs = (
         task(groupbykey)
         .validate()
@@ -2141,7 +2186,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[patrol_events_utm, normalize_transect_underscores],
+            iterables=[patrol_events_utm, alias_transect_names],
             **(params.get("zip_patrol_transects") or {}),
         )
         .call()
@@ -2268,7 +2313,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[estimate_animal_position, normalize_transect_underscores],
+            iterables=[estimate_animal_position, alias_transect_names],
             **(params.get("zip_est_patrol_transects") or {}),
         )
         .call()
@@ -2356,7 +2401,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(**(params.get("merge_transects") or {}))
-        .mapvalues(argnames=["transects"], argvalues=normalize_transect_underscores)
+        .mapvalues(argnames=["transects"], argvalues=alias_transect_names)
     )
 
     simplify_tolerance = (
@@ -3074,7 +3119,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             column="event_type",
-            values=["distancecountwildlife_rep", "distance_count_wildlife_sighting"],
+            values=[
+                "distancecountwildlife_rep",
+                "distance_count_wildlife_sighting",
+                "distance_count",
+            ],
             **(params.get("filter_wild_analysis") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=filter_intersecting_events)
