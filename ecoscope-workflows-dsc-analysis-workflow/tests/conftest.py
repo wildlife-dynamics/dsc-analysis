@@ -41,9 +41,7 @@ SNAPSHOT_DIFF_OUTPUT_DIRNAME = ARTIFACTS.parent / "__diff_output__"
 TEST_CASES_YAML = ARTIFACTS.parent / "test-cases.yaml"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-dsc-analysis-workflow"
 RESULTS_ENV_VAR = "ECOSCOPE_WORKFLOWS_RESULTS"
-IO_TASKS_IMPORTABLE_REFERENCES = [
-    "ecoscope.platform.tasks.io.process_events_details",
-]
+IO_TASKS_IMPORTABLE_REFERENCES = []
 
 yaml = ruamel.yaml.YAML(typ="safe")
 
