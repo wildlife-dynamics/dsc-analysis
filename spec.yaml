@@ -471,7 +471,7 @@ workflow:
         stroked: true
         get_fill_color: [189, 183, 107]
         get_line_color: [189, 183, 107]
-        get_line_width: 0.95
+        get_line_width: 0.85
         opacity: 0.55
       legend:
         title: "Legend"
@@ -531,7 +531,7 @@ workflow:
         filled: false
         stroked: true
         get_line_color: [200, 30, 30]
-        get_line_width: 2.5
+        get_line_width: 3.25
         opacity: 0.85
       legend:
         title: ""
@@ -564,13 +564,13 @@ workflow:
       layer_style:
         get_fill_color: species_colour
         get_line_color: [40, 40, 40]
-        get_line_width: 0.5
+        get_line_width: 0.325
         get_radius: radius
         radius_units: pixels
-        opacity: 0.85
+        opacity: 0.75
         stroked: true
       legend:
-        title: "Sightings (larger = more animals)"
+        title: "Sightings"
         label_column: species_group
         color_column: species_colour
     mapvalues:
@@ -599,7 +599,7 @@ workflow:
         id: zoom_to_envelope
         task: ecoscope_workflows_ext_ste.tasks.spatial_operations.envelope_gdf
         partial:
-          expansion_factor: 1.35
+          expansion_factor: 1.15
         mapvalues:
           argnames: gdf
           argvalues: ${{ workflow.transect_areas.return }}

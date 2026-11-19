@@ -1141,7 +1141,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "stroked": True,
                 "get_fill_color": [189, 183, 107],
                 "get_line_color": [189, 183, 107],
-                "get_line_width": 0.95,
+                "get_line_width": 0.85,
                 "opacity": 0.55,
             },
             legend={
@@ -1225,7 +1225,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "filled": False,
                 "stroked": True,
                 "get_line_color": [200, 30, 30],
-                "get_line_width": 2.5,
+                "get_line_width": 3.25,
                 "opacity": 0.85,
             },
             legend={
@@ -1279,14 +1279,14 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             layer_style={
                 "get_fill_color": "species_colour",
                 "get_line_color": [40, 40, 40],
-                "get_line_width": 0.5,
+                "get_line_width": 0.325,
                 "get_radius": "radius",
                 "radius_units": "pixels",
-                "opacity": 0.85,
+                "opacity": 0.75,
                 "stroked": True,
             },
             legend={
-                "title": "Sightings (larger = more animals)",
+                "title": "Sightings",
                 "label_column": "species_group",
                 "color_column": "species_colour",
             },
@@ -1332,7 +1332,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(expansion_factor=1.35, **(params.get("zoom_to_envelope") or {}))
+        .partial(expansion_factor=1.15, **(params.get("zoom_to_envelope") or {}))
         .mapvalues(argnames=["gdf"], argvalues=transect_areas)
     )
 
