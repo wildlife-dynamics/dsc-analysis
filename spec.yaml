@@ -347,7 +347,7 @@ workflow:
     task: single_value_widget
     partial:
       values: ${{ workflow.total_distance_per_period.return }}
-      title: "Total distance travelled during survey activity (km)"
+      title: "Distance (km)"
       decimal_places: 1
 
   - name: Sum man-hours per period
@@ -381,7 +381,7 @@ workflow:
     task: single_value_widget
     partial:
       values: ${{ workflow.total_transects_per_period.return }}
-      title: "Number of Transects Surveyed"
+      title: "Transects Surveyed"
       decimal_places: 0
 
   - name: List transects not surveyed per period
@@ -401,7 +401,7 @@ workflow:
     task: single_value_widget
     partial:
       values: ${{ workflow.missed_transects_count.return }}
-      title: "Transects Not Surveyed"
+      title: "Not Surveyed"
       decimal_places: 0
 
   - name: Count sightings per period

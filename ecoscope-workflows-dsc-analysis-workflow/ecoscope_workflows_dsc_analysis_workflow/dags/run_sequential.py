@@ -12,9 +12,7 @@ from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
 from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
-from ecoscope.platform.tasks.io import persist_df as persist_df
 from ecoscope.platform.tasks.io import persist_text as persist_text
-from ecoscope.platform.tasks.io import process_events_details as process_events_details
 from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
 from ecoscope.platform.tasks.results import create_geojson_layer as create_geojson_layer
 from ecoscope.platform.tasks.results import (
@@ -23,14 +21,7 @@ from ecoscope.platform.tasks.results import (
 from ecoscope.platform.tasks.results import (
     create_scatterplot_layer as create_scatterplot_layer,
 )
-from ecoscope.platform.tasks.results import (
-    create_single_value_widget_single_view as create_single_value_widget_single_view,
-)
-from ecoscope.platform.tasks.results import (
-    create_table_widget_single_view as create_table_widget_single_view,
-)
 from ecoscope.platform.tasks.results import draw_map as draw_map
-from ecoscope.platform.tasks.results import draw_table as draw_table
 from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_views
 from ecoscope.platform.tasks.results import set_base_maps as set_base_maps
@@ -39,178 +30,110 @@ from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope.platform.tasks.skip import (
-    any_keyed_iterables_are_skips as any_keyed_iterables_are_skips,
-)
 from ecoscope.platform.tasks.skip import never as never
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope.platform.tasks.transformation import map_values as map_values
-from ecoscope.platform.tasks.transformation import (
-    normalize_json_column as normalize_json_column,
-)
-from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
-    reproject_gdf as reproject_gdf,
-)
-from ecoscope_workflows_ext_custom.tasks.transformation import (
-    filter_row_values as filter_row_values,
-)
-from ecoscope_workflows_ext_custom.tasks.transformation import (
-    format_text_column as format_text_column,
-)
-from ecoscope_workflows_ext_custom.tasks.transformation import (
-    merge_two_dataframes as merge_two_dataframes,
-)
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     select_columns as select_columns,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    build_survey_log as build_survey_log,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    build_survey_metadata_processed as build_survey_metadata_processed,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    combine_latest_survey_areas as combine_latest_survey_areas,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    combine_survey_metadata as combine_survey_metadata,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    combine_transects as combine_transects,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.analysis_outputs import (
-    stringify_datetime_columns as stringify_datetime_columns,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
+    connect_sites as connect_sites,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    append_run_date as append_run_date,
+    fetch_site_events as fetch_site_events,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_hls_ndvi_image as build_hls_ndvi_image,
+    fetch_site_patrols as fetch_site_patrols,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_output_subfolder as build_output_subfolder,
+    fetch_site_transects as fetch_site_transects,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_palsar_woody_cover_image as build_palsar_woody_cover_image,
+    label_transect_covariates as label_transect_covariates,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    build_slope_image as build_slope_image,
+    link_events_to_patrols as link_events_to_patrols,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    create_connection_configs_from_sites as create_connection_configs_from_sites,
+    persist_survey_files as persist_survey_files,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    fetch_events as fetch_events,
+    write_cross_survey_outputs as write_cross_survey_outputs,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    fetch_patrol_events as fetch_patrol_events,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    build_data_quality as build_data_quality,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    fetch_transects as fetch_transects,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    build_encounter_rates as build_encounter_rates,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    filter_complete_groups as filter_complete_groups,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    build_missed_transects as build_missed_transects,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_server_name as get_server_name,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    build_transect_covariates as build_transect_covariates,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_server_subdomain as get_server_subdomain,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    chart_widget as chart_widget,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_survey_min_date as get_survey_min_date,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    count_rows as count_rows,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    get_survey_period_label as get_survey_period_label,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    draw_distance_histogram as draw_distance_histogram,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    label_features_with_image_stat as label_features_with_image_stat,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    draw_effort_by_day as draw_effort_by_day,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    split_connection_configs as split_connection_configs,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    draw_site_trends as draw_site_trends,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    split_survey_by_period as split_survey_by_period,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    draw_species_chart as draw_species_chart,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    to_ee_feature_collection as to_ee_feature_collection,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    sighting_totals as sighting_totals,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    unpack_period_connection_survey as unpack_period_connection_survey,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    single_value_widget as single_value_widget,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.io import (
-    unpack_period_patrol_events as unpack_period_patrol_events,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    style_sightings_for_map as style_sightings_for_map,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    add_constant_column as add_constant_column,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    add_off_transect_distance as add_off_transect_distance,
+from ecoscope_workflows_ext_distance_sample_counts.tasks.results import (
+    table_widget as table_widget,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    add_orig_geometry as add_orig_geometry,
+    build_analysis_data as build_analysis_data,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    bfill_within_patrols as bfill_within_patrols,
+    build_survey_metadata as build_survey_metadata,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    buffer_transects as buffer_transects,
+    compute_survey_effort as compute_survey_effort,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    collect_transects_paths as collect_transects_paths,
+    locate_survey_events as locate_survey_events,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    compute_field_effort as compute_field_effort,
+    missed_transect_lines as missed_transect_lines,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    convert_column_timezone as convert_column_timezone,
+    pair_keyed as pair_keyed,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    drop_null_columns as drop_null_columns,
+    prepare_site_transects as prepare_site_transects,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    estimate_animal_positions as estimate_animal_positions,
+    prepare_survey_events as prepare_survey_events,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    estimate_utm_crs as estimate_utm_crs,
+    select_visited_transects as select_visited_transects,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    extract_notes_text as extract_notes_text,
+    split_survey_periods as split_survey_periods,
 )
 from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    ffill_within_patrols as ffill_within_patrols,
+    visited_transect_lines as visited_transect_lines,
 )
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    filter_transects_by_metadata as filter_transects_by_metadata,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    flag_events_intersecting_transect as flag_events_intersecting_transect,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    join_list_column as join_list_column,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    join_with_underscore as join_with_underscore,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    merge_transect_lines as merge_transect_lines,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    normalize_name_spaces as normalize_name_spaces,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    parse_df_point as parse_df_point,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    parse_list_column as parse_list_column,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    set_dataframe_index as set_dataframe_index,
-)
-from ecoscope_workflows_ext_distance_sample_counts.tasks.transformation import (
-    simplify_transects as simplify_transects,
-)
-from ecoscope_workflows_ext_ste.tasks.filter import filter_rows as filter_rows
 from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
     compute_view_state_from_gdf as compute_view_state_from_gdf,
 )
@@ -298,176 +221,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    analysis_data_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("analysis_data_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_AnalysisData",
-            **(params.get("analysis_data_folder") or {}),
-        )
-        .call()
-    )
-
-    metadata_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("metadata_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_Metadata",
-            **(params.get("metadata_folder") or {}),
-        )
-        .call()
-    )
-
-    field_effort_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("field_effort_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_FieldEffort",
-            **(params.get("field_effort_folder") or {}),
-        )
-        .call()
-    )
-
-    events_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("events_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_Events",
-            **(params.get("events_folder") or {}),
-        )
-        .call()
-    )
-
-    transect_areas_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("transect_areas_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_TransectAreas",
-            **(params.get("transect_areas_folder") or {}),
-        )
-        .call()
-    )
-
-    transect_lines_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("transect_lines_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_TransectLines",
-            **(params.get("transect_lines_folder") or {}),
-        )
-        .call()
-    )
-
-    master_transects_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("master_transects_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="ER_MasterTransects",
-            **(params.get("master_transects_folder") or {}),
-        )
-        .call()
-    )
-
-    analysis_outputs_folder = (
-        task(build_output_subfolder)
-        .validate()
-        .set_task_instance_id("analysis_outputs_folder")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            subfolder="AnalysisOutputs",
-            **(params.get("analysis_outputs_folder") or {}),
-        )
-        .call()
-    )
-
     connection_config = (
-        task(create_connection_configs_from_sites)
+        task(connect_sites)
         .validate()
         .set_task_instance_id("connection_config")
         .handle_errors()
@@ -483,10 +238,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    split_connection_config = (
-        task(split_connection_configs)
+    site_events = (
+        task(fetch_site_events)
         .validate()
-        .set_task_instance_id("split_connection_config")
+        .set_task_instance_id("site_events")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -497,50 +252,25 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            connection_configs=connection_config,
-            **(params.get("split_connection_config") or {}),
+            sites=connection_config,
+            time_range=time_range,
+            event_types=[
+                "distancecountwildlife_rep",
+                "distance_count_wildlife_sighting",
+                "distancecountpatrol_rep",
+                "distance_count_patrol_metadata",
+                "distance_count",
+            ],
+            max_workers=5,
+            **(params.get("site_events") or {}),
         )
         .call()
     )
 
-    fetch_master_transects = (
-        task(fetch_transects)
+    site_patrols = (
+        task(fetch_site_patrols)
         .validate()
-        .set_task_instance_id("fetch_master_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("fetch_master_transects") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=split_connection_config)
-    )
-
-    master_transects_survey_name = (
-        task(get_server_subdomain)
-        .validate()
-        .set_task_instance_id("master_transects_survey_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("master_transects_survey_name") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=split_connection_config)
-    )
-
-    combine_master_transects_name = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_master_transects_name")
+        .set_task_instance_id("site_patrols")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -551,54 +281,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            second="master_transects",
-            **(params.get("combine_master_transects_name") or {}),
-        )
-        .mapvalues(argnames=["first"], argvalues=master_transects_survey_name)
-    )
-
-    master_transects_filename = (
-        task(append_run_date)
-        .validate()
-        .set_task_instance_id("master_transects_filename")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            date_format="%Y_%m_%d", **(params.get("master_transects_filename") or {})
-        )
-        .mapvalues(argnames=["name"], argvalues=combine_master_transects_name)
-    )
-
-    zip_filename_master_transects = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_master_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[master_transects_filename, fetch_master_transects],
-            **(params.get("zip_filename_master_transects") or {}),
+            sites=connection_config,
+            time_range=time_range,
+            max_workers=5,
+            **(params.get("site_patrols") or {}),
         )
         .call()
     )
 
-    complete_fn_master_transects = (
-        task(filter_complete_groups)
+    site_surveys = (
+        task(link_events_to_patrols)
         .validate()
-        .set_task_instance_id("complete_fn_master_transects")
+        .set_task_instance_id("site_surveys")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -609,15 +303,298 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_filename_master_transects,
-            expected_length=2,
-            **(params.get("complete_fn_master_transects") or {}),
+            sites=connection_config,
+            events=site_events,
+            patrols=site_patrols,
+            event_types=[
+                "distancecountwildlife_rep",
+                "distance_count_wildlife_sighting",
+                "distancecountpatrol_rep",
+                "distance_count_patrol_metadata",
+                "distance_count",
+            ],
+            chunk_size=75,
+            **(params.get("site_surveys") or {}),
         )
         .call()
+    )
+
+    survey_periods = (
+        task(split_survey_periods)
+        .validate()
+        .set_task_instance_id("survey_periods")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            surveys=site_surveys,
+            max_gap_days=30,
+            **(params.get("survey_periods") or {}),
+        )
+        .call()
+    )
+
+    survey_metadata = (
+        task(build_survey_metadata)
+        .validate()
+        .set_task_instance_id("survey_metadata")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(periods=survey_periods, **(params.get("survey_metadata") or {}))
+        .call()
+    )
+
+    survey_events = (
+        task(prepare_survey_events)
+        .validate()
+        .set_task_instance_id("survey_events")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            periods=survey_periods,
+            time_range=time_range,
+            **(params.get("survey_events") or {}),
+        )
+        .call()
+    )
+
+    field_effort = (
+        task(compute_survey_effort)
+        .validate()
+        .set_task_instance_id("field_effort")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            periods=survey_periods,
+            events=survey_events,
+            span="day",
+            default_team_size=3,
+            max_speed_kmhr=100,
+            max_patrol_hours=12,
+            max_workers=5,
+            **(params.get("field_effort") or {}),
+        )
+        .call()
+    )
+
+    master_transects = (
+        task(fetch_site_transects)
+        .validate()
+        .set_task_instance_id("master_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            sites=connection_config,
+            max_workers=5,
+            **(params.get("master_transects") or {}),
+        )
+        .call()
+    )
+
+    site_transects = (
+        task(prepare_site_transects)
+        .validate()
+        .set_task_instance_id("site_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            transects=master_transects,
+            simplify_tolerance=50,
+            corridor_half_width=500,
+            cap_style="flat",
+            resolution=5,
+            **(params.get("site_transects") or {}),
+        )
+        .call()
+    )
+
+    located_events = (
+        task(locate_survey_events)
+        .validate()
+        .set_task_instance_id("located_events")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            events=survey_events,
+            transects=site_transects,
+            metadata=survey_metadata,
+            **(params.get("located_events") or {}),
+        )
+        .call()
+    )
+
+    visited_transects = (
+        task(select_visited_transects)
+        .validate()
+        .set_task_instance_id("visited_transects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            transects=site_transects,
+            metadata=survey_metadata,
+            events=located_events,
+            **(params.get("visited_transects") or {}),
+        )
+        .call()
+    )
+
+    transect_lines = (
+        task(visited_transect_lines)
+        .validate()
+        .set_task_instance_id("transect_lines")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("transect_lines") or {}))
+        .mapvalues(argnames=["visited"], argvalues=visited_transects)
+    )
+
+    transect_areas = (
+        task(label_transect_covariates)
+        .validate()
+        .set_task_instance_id("transect_areas")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            client=gee_client,
+            visited=visited_transects,
+            periods=survey_periods,
+            transects=site_transects,
+            ndvi_window_days=30,
+            ndvi_max_window_days=90,
+            max_cloud_cover=30,
+            dem_asset="USGS/SRTMGL1_003",
+            dry_season_start_month=7,
+            dry_season_end_month=9,
+            max_lookback_years=3,
+            ndvi_scale=30.0,
+            slope_scale=30.0,
+            woody_scale=50.0,
+            max_workers=4,
+            **(params.get("transect_areas") or {}),
+        )
+        .call()
+    )
+
+    analysis_data = (
+        task(build_analysis_data)
+        .validate()
+        .set_task_instance_id("analysis_data")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            events=located_events,
+            transect_areas=transect_areas,
+            **(params.get("analysis_data") or {}),
+        )
+        .call()
+    )
+
+    events_layer = (
+        task(select_columns)
+        .validate()
+        .set_task_instance_id("events_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=[
+                "serial_number",
+                "transect_id",
+                "dist_to_centre",
+                "ortho_dist",
+                "intersects_transect",
+                "geometry",
+            ],
+            raise_on_missing=False,
+            **(params.get("events_layer") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=analysis_data)
     )
 
     persist_master_transects_gpkg = (
-        task(persist_df)
+        task(persist_survey_files)
         .validate()
         .set_task_instance_id("persist_master_transects_gpkg")
         .handle_errors()
@@ -630,653 +607,19 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=master_transects_folder,
+            frames=master_transects,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_MasterTransects",
+            suffix="master_transects",
             filetype="gpkg",
+            add_run_date=True,
             **(params.get("persist_master_transects_gpkg") or {}),
-        )
-        .mapvalues(argnames=["filename", "df"], argvalues=complete_fn_master_transects)
-    )
-
-    retrieve_patrol_events = (
-        task(fetch_patrol_events)
-        .validate()
-        .set_task_instance_id("retrieve_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(time_range=time_range, **(params.get("retrieve_patrol_events") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=split_connection_config)
-    )
-
-    set_patrol_index = (
-        task(set_dataframe_index)
-        .validate()
-        .set_task_instance_id("set_patrol_index")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="id", **(params.get("set_patrol_index") or {}))
-        .mapvalues(argnames=["df"], argvalues=retrieve_patrol_events)
-    )
-
-    zip_conn_patrol_events = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_conn_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-                any_keyed_iterables_are_skips,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[split_connection_config, set_patrol_index],
-            **(params.get("zip_conn_patrol_events") or {}),
-        )
-        .call()
-    )
-
-    period_split = (
-        task(split_survey_by_period)
-        .validate()
-        .set_task_instance_id("period_split")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            connection_survey_and_events=zip_conn_patrol_events,
-            **(params.get("period_split") or {}),
-        )
-        .call()
-    )
-
-    period_connection_survey = (
-        task(unpack_period_connection_survey)
-        .validate()
-        .set_task_instance_id("period_connection_survey")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("period_connection_survey") or {}))
-        .mapvalues(argnames=["pair"], argvalues=period_split)
-    )
-
-    period_patrol_events = (
-        task(unpack_period_patrol_events)
-        .validate()
-        .set_task_instance_id("period_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("period_patrol_events") or {}))
-        .mapvalues(argnames=["pair"], argvalues=period_split)
-    )
-
-    period_label = (
-        task(get_survey_period_label)
-        .validate()
-        .set_task_instance_id("period_label")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            connection_survey_and_events=zip_conn_patrol_events,
-            **(params.get("period_label") or {}),
-        )
-        .call()
-    )
-
-    fetch_patrol_transects = (
-        task(fetch_transects)
-        .validate()
-        .set_task_instance_id("fetch_patrol_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("fetch_patrol_transects") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=period_connection_survey)
-    )
-
-    fetch_earthranger_client = (
-        task(get_server_name)
-        .validate()
-        .set_task_instance_id("fetch_earthranger_client")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("fetch_earthranger_client") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=period_connection_survey)
-    )
-
-    fetch_er_domain_name = (
-        task(get_server_name)
-        .validate()
-        .set_task_instance_id("fetch_er_domain_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("fetch_er_domain_name") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=period_connection_survey)
-    )
-
-    fetch_events_from_ids = (
-        task(fetch_events)
-        .validate()
-        .set_task_instance_id("fetch_events_from_ids")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(chunk_size=75, **(params.get("fetch_events_from_ids") or {}))
-        .mapvalues(
-            argnames=["connection_survey", "patrol_events"], argvalues=period_split
-        )
-    )
-
-    relevant_event_types = (
-        task(filter_row_values)
-        .validate()
-        .set_task_instance_id("relevant_event_types")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_type",
-            values=[
-                "distancecountwildlife_rep",
-                "distance_count_wildlife_sighting",
-                "distancecountpatrol_rep",
-                "distance_count_patrol_metadata",
-                "distance_count",
-            ],
-            **(params.get("relevant_event_types") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=fetch_events_from_ids)
-    )
-
-    filter_survey_events = (
-        task(filter_row_values)
-        .validate()
-        .set_task_instance_id("filter_survey_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_type",
-            values=["distancecountpatrol_rep", "distance_count_patrol_metadata"],
-            **(params.get("filter_survey_events") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=relevant_event_types)
-    )
-
-    extract_lat_long = (
-        task(parse_df_point)
-        .validate()
-        .set_task_instance_id("extract_lat_long")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("extract_lat_long") or {}))
-        .mapvalues(argnames=["df"], argvalues=filter_survey_events)
-    )
-
-    normalize_reported_by = (
-        task(normalize_json_column)
-        .validate()
-        .set_task_instance_id("normalize_reported_by")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="reported_by",
-            skip_if_not_exists=True,
-            sort_columns=True,
-            **(params.get("normalize_reported_by") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=extract_lat_long)
-    )
-
-    extract_reported_by = (
-        task(join_list_column)
-        .validate()
-        .set_task_instance_id("extract_reported_by")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="reported_by__name",
-            separator=",",
-            **(params.get("extract_reported_by") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=normalize_reported_by)
-    )
-
-    zip_conn_survey_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_conn_survey_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[extract_reported_by, fetch_earthranger_client],
-            **(params.get("zip_conn_survey_df") or {}),
-        )
-        .call()
-    )
-
-    complete_conn_survey_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_conn_survey_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_conn_survey_df,
-            expected_length=2,
-            **(params.get("complete_conn_survey_df") or {}),
-        )
-        .call()
-    )
-
-    process_survey_event_details = (
-        task(process_events_details)
-        .validate()
-        .set_task_instance_id("process_survey_event_details")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            map_to_titles=True,
-            ordered=True,
-            **(params.get("process_survey_event_details") or {}),
-        )
-        .mapvalues(argnames=["df", "client"], argvalues=complete_conn_survey_df)
-    )
-
-    normalize_survey_df = (
-        task(normalize_json_column)
-        .validate()
-        .set_task_instance_id("normalize_survey_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_details",
-            skip_if_not_exists=True,
-            sort_columns=True,
-            **(params.get("normalize_survey_df") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=process_survey_event_details)
-    )
-
-    map_survey_event_columns = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("map_survey_event_columns")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            duplicate_strategy="suffix",
-            raise_if_not_found=False,
-            drop_columns=["id"],
-            retain_columns=[
-                "serial_number",
-                "event_type",
-                "time",
-                "Latitude",
-                "Longitude",
-                "reported_by__name",
-                "event_details__Transect ID",
-                "event_details__Transect_ID",
-                "event_details__Team_members",
-                "event_details__Team Members",
-                "event_details__Number_of_observers",
-                "event_details__Number of Observers",
-                "event_details__transect_id",
-                "event_details__team_members",
-                "event_details__number_of_observers",
-            ],
-            rename_columns={
-                "time": "time",
-                "event_type": "event_type",
-                "title": "title",
-                "geometry": "geometry",
-                "serial_number": "serial_number",
-                "patrol_id": "patrol_id",
-                "patrol_serial_number": "patrol_serial_number",
-                "reported_by__name": "reported_by",
-                "Latitude": "latitude",
-                "Longitude": "longitude",
-                "event_details__Number_of_observers": "Number of Observers",
-                "event_details__Team_members": "Team Members",
-                "event_details__Transect_ID": "Transect ID",
-                "event_details__Number of Observers": "Number of Observers",
-                "event_details__Team Members": "Team Members",
-                "event_details__Transect ID": "Transect ID",
-                "event_details__transect_id": "Transect ID",
-                "event_details__team_members": "Team Members",
-                "event_details__number_of_observers": "Number of Observers",
-            },
-            **(params.get("map_survey_event_columns") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=normalize_survey_df)
-    )
-
-    parse_team_members = (
-        task(parse_list_column)
-        .validate()
-        .set_task_instance_id("parse_team_members")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="Team Members", **(params.get("parse_team_members") or {}))
-        .mapvalues(argnames=["df"], argvalues=map_survey_event_columns)
-    )
-
-    join_team_members = (
-        task(join_list_column)
-        .validate()
-        .set_task_instance_id("join_team_members")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="Team Members",
-            separator=",",
-            **(params.get("join_team_members") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=parse_team_members)
-    )
-
-    drop_null_cols = (
-        task(drop_null_columns)
-        .validate()
-        .set_task_instance_id("drop_null_cols")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("drop_null_cols") or {}))
-        .mapvalues(argnames=["df"], argvalues=join_team_members)
-    )
-
-    retrieve_survey_name = (
-        task(get_server_subdomain)
-        .validate()
-        .set_task_instance_id("retrieve_survey_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("retrieve_survey_name") or {}))
-        .mapvalues(argnames=["connection_survey"], argvalues=period_connection_survey)
-    )
-
-    zip_name_period = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_name_period")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[retrieve_survey_name, period_label],
-            **(params.get("zip_name_period") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_name_period = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_name_period")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_name_period,
-            expected_length=2,
-            **(params.get("complete_zip_name_period") or {}),
-        )
-        .call()
-    )
-
-    combine_survey_period_name = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_survey_period_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("combine_survey_period_name") or {}))
-        .mapvalues(argnames=["first", "second"], argvalues=complete_zip_name_period)
-    )
-
-    combine_survey_event_names = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_survey_event_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            second="analysis_metadata",
-            **(params.get("combine_survey_event_names") or {}),
-        )
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_survey_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_survey_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_survey_event_names, drop_null_cols],
-            **(params.get("zip_filename_survey_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_filename_survey_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_filename_survey_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_survey_df,
-            expected_length=2,
-            **(params.get("complete_zip_filename_survey_df") or {}),
         )
         .call()
     )
 
     persist_survey_event_metadata = (
-        task(persist_df)
+        task(persist_survey_files)
         .validate()
         .set_task_instance_id("persist_survey_event_metadata")
         .handle_errors()
@@ -1289,134 +632,19 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=metadata_folder,
+            frames=survey_metadata,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_Metadata",
+            suffix="analysis_metadata",
             filetype="csv",
+            add_run_date=False,
             **(params.get("persist_survey_event_metadata") or {}),
-        )
-        .mapvalues(
-            argnames=["filename", "df"], argvalues=complete_zip_filename_survey_df
-        )
-    )
-
-    zip_connection_metadata = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_connection_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[period_connection_survey, drop_null_cols],
-            **(params.get("zip_connection_metadata") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_connection_metadata = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_connection_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_connection_metadata,
-            expected_length=2,
-            **(params.get("complete_zip_connection_metadata") or {}),
-        )
-        .call()
-    )
-
-    field_effort = (
-        task(compute_field_effort)
-        .validate()
-        .set_task_instance_id("field_effort")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("field_effort") or {}))
-        .mapvalues(
-            argnames=["connection_survey", "df"],
-            argvalues=complete_zip_connection_metadata,
-        )
-    )
-
-    combine_survey_field = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_survey_field")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(second="field_effort", **(params.get("combine_survey_field") or {}))
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_fe = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_fe")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_survey_field, field_effort],
-            **(params.get("zip_filename_fe") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_filename_fe = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_filename_fe")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_fe,
-            expected_length=2,
-            **(params.get("complete_zip_filename_fe") or {}),
         )
         .call()
     )
 
     persist_field_effort = (
-        task(persist_df)
+        task(persist_survey_files)
         .validate()
         .set_task_instance_id("persist_field_effort")
         .handle_errors()
@@ -1429,11 +657,141 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            root_path=field_effort_folder,
+            frames=field_effort,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_FieldEffort",
+            suffix="field_effort",
             filetype="csv",
+            add_run_date=False,
             **(params.get("persist_field_effort") or {}),
         )
-        .mapvalues(argnames=["filename", "df"], argvalues=complete_zip_filename_fe)
+        .call()
+    )
+
+    persist_patrol_events_csv = (
+        task(persist_survey_files)
+        .validate()
+        .set_task_instance_id("persist_patrol_events_csv")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=analysis_data,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_AnalysisData",
+            suffix="analysis_data",
+            filetype="csv",
+            add_run_date=False,
+            **(params.get("persist_patrol_events_csv") or {}),
+        )
+        .call()
+    )
+
+    persist_patrol_events_gpkg = (
+        task(persist_survey_files)
+        .validate()
+        .set_task_instance_id("persist_patrol_events_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=events_layer,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_Events",
+            suffix="events",
+            filetype="gpkg",
+            add_run_date=False,
+            **(params.get("persist_patrol_events_gpkg") or {}),
+        )
+        .call()
+    )
+
+    persist_transects_gpkg = (
+        task(persist_survey_files)
+        .validate()
+        .set_task_instance_id("persist_transects_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=transect_areas,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_TransectAreas",
+            suffix="transect_areas",
+            filetype="gpkg",
+            add_run_date=False,
+            **(params.get("persist_transects_gpkg") or {}),
+        )
+        .call()
+    )
+
+    persist_transect_lines_gpkg = (
+        task(persist_survey_files)
+        .validate()
+        .set_task_instance_id("persist_transect_lines_gpkg")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=transect_lines,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="ER_TransectLines",
+            suffix="transect_lines",
+            filetype="gpkg",
+            add_run_date=False,
+            **(params.get("persist_transect_lines_gpkg") or {}),
+        )
+        .call()
+    )
+
+    cross_survey_outputs = (
+        task(write_cross_survey_outputs)
+        .validate()
+        .set_task_instance_id("cross_survey_outputs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            master_transects=master_transects,
+            transect_areas=transect_areas,
+            metadata=survey_metadata,
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            subfolder="AnalysisOutputs",
+            exclude_surveys=["pardamat_2024_11"],
+            crs=32736,
+            **(params.get("cross_survey_outputs") or {}),
+        )
+        .call()
     )
 
     total_distance_per_period = (
@@ -1455,28 +813,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["df"], argvalues=field_effort)
     )
 
-    total_distance_sv_widgets = (
-        task(create_single_value_widget_single_view)
-        .validate()
-        .set_task_instance_id("total_distance_sv_widgets")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Total distance travelled during survey activity",
-            decimal_places=1,
-            **(params.get("total_distance_sv_widgets") or {}),
-        )
-        .map(argnames=["view", "data"], argvalues=total_distance_per_period)
-    )
-
     total_distance_grouped_widget = (
-        task(merge_widget_views)
+        task(single_value_widget)
         .validate()
         .set_task_instance_id("total_distance_grouped_widget")
         .handle_errors()
@@ -1489,16 +827,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            widgets=total_distance_sv_widgets,
+            values=total_distance_per_period,
+            title="Distance (km)",
+            decimal_places=1,
             **(params.get("total_distance_grouped_widget") or {}),
         )
         .call()
     )
 
-    total_duration_per_period = (
+    total_man_hours_per_period = (
         task(dataframe_column_sum)
         .validate()
-        .set_task_instance_id("total_duration_per_period")
+        .set_task_instance_id("total_man_hours_per_period")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -1509,33 +849,13 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            column_name="duration", **(params.get("total_duration_per_period") or {})
+            column_name="man_hours", **(params.get("total_man_hours_per_period") or {})
         )
         .mapvalues(argnames=["df"], argvalues=field_effort)
     )
 
-    total_effort_sv_widgets = (
-        task(create_single_value_widget_single_view)
-        .validate()
-        .set_task_instance_id("total_effort_sv_widgets")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Man-hours",
-            decimal_places=1,
-            **(params.get("total_effort_sv_widgets") or {}),
-        )
-        .map(argnames=["view", "data"], argvalues=total_duration_per_period)
-    )
-
     total_effort_grouped_widget = (
-        task(merge_widget_views)
+        task(single_value_widget)
         .validate()
         .set_task_instance_id("total_effort_grouped_widget")
         .handle_errors()
@@ -1548,1029 +868,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            widgets=total_effort_sv_widgets,
+            values=total_man_hours_per_period,
+            title="Man-hours",
+            decimal_places=1,
             **(params.get("total_effort_grouped_widget") or {}),
         )
         .call()
-    )
-
-    select_event_details = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_event_details")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=["event_details", "notes"],
-            raise_on_missing=False,
-            **(params.get("select_event_details") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=relevant_event_types)
-    )
-
-    zip_patrol_events_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_patrol_events_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[period_patrol_events, select_event_details],
-            **(params.get("zip_patrol_events_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_patrol_events_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_patrol_events_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_patrol_events_df,
-            expected_length=2,
-            **(params.get("complete_zip_patrol_events_df") or {}),
-        )
-        .call()
-    )
-
-    merge_patrol_events = (
-        task(merge_two_dataframes)
-        .validate()
-        .set_task_instance_id("merge_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            how="left",
-            left_on=None,
-            right_on=None,
-            left_index=True,
-            right_index=True,
-            fillna_value=None,
-            on=None,
-            **(params.get("merge_patrol_events") or {}),
-        )
-        .mapvalues(argnames=["left", "right"], argvalues=complete_zip_patrol_events_df)
-    )
-
-    convert_tz_utc = (
-        task(convert_column_timezone)
-        .validate()
-        .set_task_instance_id("convert_tz_utc")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="time", time_range=time_range, **(params.get("convert_tz_utc") or {})
-        )
-        .mapvalues(argnames=["df"], argvalues=merge_patrol_events)
-    )
-
-    normalize_event_details = (
-        task(normalize_json_column)
-        .validate()
-        .set_task_instance_id("normalize_event_details")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_details",
-            skip_if_not_exists=True,
-            sort_columns=True,
-            **(params.get("normalize_event_details") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=convert_tz_utc)
-    )
-
-    map_patrol_df = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("map_patrol_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            duplicate_strategy="suffix",
-            drop_columns=None,
-            raise_if_not_found=False,
-            retain_columns=None,
-            rename_columns={
-                "event_details__distancecountpatrol_numberofobservers": "num_observers",
-                "event_details__distancecountpatrol_teammembers": "Team Members",
-                "event_details__distancecountpatrol_transectid": "transect_id",
-                "event_details__distancecountwildlife_distancetocentre": "dist_to_centre",
-                "event_details__distancecountwildlife_numberofjuveniles": "num_juveniles",
-                "event_details__distancecountwildlife_radialangle": "radialangle",
-                "event_details__distancecountwildlife_species": "species",
-                "event_details__distancecountwildlife_totalcount": "totalcount",
-                "event_details__Transect_ID": "transect_id_v2",
-                "event_details__Transect ID": "transect_id_v2",
-                "event_details__Team_members": "Team Members",
-                "event_details__Number_of_observers": "num_observers",
-                "event_details__Number_of_Observers": "num_observers",
-                "event_details__Number of Observers": "num_observers",
-                "event_details__Species": "species",
-                "event_details__Total Count": "totalcount",
-                "event_details__Number of Juveniles": "num_juveniles",
-                "event_details__Radial Angle": "radialangle",
-                "event_details__Distance to Centre (m)": "dist_to_centre",
-                "event_details__transect_id": "transect_id",
-                "event_details__team_members": "Team Members",
-                "event_details__number_of_observers": "num_observers",
-                "event_details__species": "species",
-                "event_details__total_count": "totalcount",
-                "event_details__radial_angle": "radialangle",
-                "event_details__number_of_juveniles": "num_juveniles",
-                "event_details__distance_to_centre_m": "dist_to_centre",
-            },
-            **(params.get("map_patrol_df") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=normalize_event_details)
-    )
-
-    normalize_transect_id = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("normalize_transect_id")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            duplicate_strategy="suffix",
-            raise_if_not_found=False,
-            drop_columns=[],
-            retain_columns=[],
-            rename_columns={"transect_id_v2": "transect_id"},
-            **(params.get("normalize_transect_id") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=map_patrol_df)
-    )
-
-    parse_transect_id = (
-        task(parse_list_column)
-        .validate()
-        .set_task_instance_id("parse_transect_id")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="transect_id", **(params.get("parse_transect_id") or {}))
-        .mapvalues(argnames=["df"], argvalues=normalize_transect_id)
-    )
-
-    join_transect_id = (
-        task(join_list_column)
-        .validate()
-        .set_task_instance_id("join_transect_id")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="transect_id",
-            separator=",",
-            **(params.get("join_transect_id") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=parse_transect_id)
-    )
-
-    lowercase_transect_id = (
-        task(format_text_column)
-        .validate()
-        .set_task_instance_id("lowercase_transect_id")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="transect_id",
-            method="lower",
-            **(params.get("lowercase_transect_id") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=join_transect_id)
-    )
-
-    bfill_patrol_events = (
-        task(bfill_within_patrols)
-        .validate()
-        .set_task_instance_id("bfill_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            group_col="patrol_serial_number",
-            columns=["transect_id", "num_observers"],
-            skip_if_missing=True,
-            **(params.get("bfill_patrol_events") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=lowercase_transect_id)
-    )
-
-    ffill_patrol_events = (
-        task(ffill_within_patrols)
-        .validate()
-        .set_task_instance_id("ffill_patrol_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            group_col="patrol_serial_number",
-            columns=["transect_id", "num_observers"],
-            skip_if_missing=True,
-            **(params.get("ffill_patrol_events") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=bfill_patrol_events)
-    )
-
-    filter_wildlife_rep = (
-        task(filter_row_values)
-        .validate()
-        .set_task_instance_id("filter_wildlife_rep")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_type",
-            values=[
-                "distancecountwildlife_rep",
-                "distance_count_wildlife_sighting",
-                "distancecountpatrol_rep",
-                "distance_count_patrol_metadata",
-            ],
-            **(params.get("filter_wildlife_rep") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=ffill_patrol_events)
-    )
-
-    extract_notes = (
-        task(extract_notes_text)
-        .validate()
-        .set_task_instance_id("extract_notes")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="notes",
-            new_column="other_species",
-            **(params.get("extract_notes") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=filter_wildlife_rep)
-    )
-
-    zip_conn_surv_name_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_conn_surv_name_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[extract_notes, combine_survey_period_name],
-            **(params.get("zip_conn_surv_name_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_conn_surv_name_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_conn_surv_name_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_conn_surv_name_df,
-            expected_length=2,
-            **(params.get("complete_zip_conn_surv_name_df") or {}),
-        )
-        .call()
-    )
-
-    add_survey_column = (
-        task(add_constant_column)
-        .validate()
-        .set_task_instance_id("add_survey_column")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="survey_id", **(params.get("add_survey_column") or {}))
-        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_conn_surv_name_df)
-    )
-
-    convert_transects_utm = (
-        task(estimate_utm_crs)
-        .validate()
-        .set_task_instance_id("convert_transects_utm")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("convert_transects_utm") or {}))
-        .mapvalues(argnames=["geodataframe"], argvalues=fetch_patrol_transects)
-    )
-
-    zip_transect_df_crs = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_transect_df_crs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[convert_transects_utm, fetch_patrol_transects],
-            **(params.get("zip_transect_df_crs") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_transect_df_crs = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_transect_df_crs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_transect_df_crs,
-            expected_length=2,
-            **(params.get("complete_zip_transect_df_crs") or {}),
-        )
-        .call()
-    )
-
-    reproject_transects_utm = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("reproject_transects_utm")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("reproject_transects_utm") or {}))
-        .mapvalues(
-            argnames=["target_crs", "gdf"], argvalues=complete_zip_transect_df_crs
-        )
-    )
-
-    normalize_transect_names_utm = (
-        task(format_text_column)
-        .validate()
-        .set_task_instance_id("normalize_transect_names_utm")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="name",
-            method="lower",
-            **(params.get("normalize_transect_names_utm") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=reproject_transects_utm)
-    )
-
-    normalize_transect_underscores = (
-        task(normalize_name_spaces)
-        .validate()
-        .set_task_instance_id("normalize_transect_underscores")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="name", **(params.get("normalize_transect_underscores") or {}))
-        .mapvalues(argnames=["df"], argvalues=normalize_transect_names_utm)
-    )
-
-    alias_transect_names = (
-        task(map_values)
-        .validate()
-        .set_task_instance_id("alias_transect_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column_name="name",
-            missing_values="preserve",
-            replacement=None,
-            value_map={
-                "oc_1": "olchoro_1",
-                "oc_2": "olchoro_2",
-                "oc_3": "olchoro_3",
-                "oc_4": "olchoro_4",
-                "oc_5": "olchoro_5",
-                "oc_6": "olchoro_6",
-                "oc_7": "olchoro_7",
-                "oc_8": "olchoro_8",
-                "oc_9": "olchoro_9",
-                "oc_10": "olchoro_10",
-                "oc_11": "olchoro_11",
-                "oc_12": "olchoro_12",
-                "oc_13": "olchoro_13",
-            },
-            **(params.get("alias_transect_names") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=normalize_transect_underscores)
-    )
-
-    zip_patrol_df_crs = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_patrol_df_crs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[convert_transects_utm, add_survey_column],
-            **(params.get("zip_patrol_df_crs") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_patrol_df_crs = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_patrol_df_crs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_patrol_df_crs,
-            expected_length=2,
-            **(params.get("complete_zip_patrol_df_crs") or {}),
-        )
-        .call()
-    )
-
-    patrol_events_utm = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("patrol_events_utm")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("patrol_events_utm") or {}))
-        .mapvalues(argnames=["target_crs", "gdf"], argvalues=complete_zip_patrol_df_crs)
-    )
-
-    zip_patrol_transects = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_patrol_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[patrol_events_utm, alias_transect_names],
-            **(params.get("zip_patrol_transects") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_patrol_transects = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_patrol_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_patrol_transects,
-            expected_length=2,
-            **(params.get("complete_zip_patrol_transects") or {}),
-        )
-        .call()
-    )
-
-    observers_distance = (
-        task(add_off_transect_distance)
-        .validate()
-        .set_task_instance_id("observers_distance")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            distance_column="off_transect_dist",
-            transect_id_column="transect_id",
-            transect_name_column="name",
-            **(params.get("observers_distance") or {}),
-        )
-        .mapvalues(
-            argnames=["patrol_events", "transects"],
-            argvalues=complete_zip_patrol_transects,
-        )
-    )
-
-    exclude_neg_off_transects = (
-        task(filter_rows)
-        .validate()
-        .set_task_instance_id("exclude_neg_off_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column_name="off_transect_dist",
-            value=-1,
-            reset_index=True,
-            op="ne",
-            **(params.get("exclude_neg_off_transects") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=observers_distance)
-    )
-
-    add_orig_geom = (
-        task(add_orig_geometry)
-        .validate()
-        .set_task_instance_id("add_orig_geom")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("add_orig_geom") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=exclude_neg_off_transects)
-    )
-
-    estimate_animal_position = (
-        task(estimate_animal_positions)
-        .validate()
-        .set_task_instance_id("estimate_animal_position")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            distance_column="dist_to_centre",
-            angle_column="radialangle",
-            preserve_original_as="orig_geometry",
-            **(params.get("estimate_animal_position") or {}),
-        )
-        .mapvalues(argnames=["patrol_events"], argvalues=add_orig_geom)
-    )
-
-    zip_est_patrol_transects = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_est_patrol_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[estimate_animal_position, alias_transect_names],
-            **(params.get("zip_est_patrol_transects") or {}),
-        )
-        .call()
-    )
-
-    complete_est_patrol_trans = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_est_patrol_trans")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_est_patrol_transects,
-            expected_length=2,
-            **(params.get("complete_est_patrol_trans") or {}),
-        )
-        .call()
-    )
-
-    compute_ortho_dist = (
-        task(add_off_transect_distance)
-        .validate()
-        .set_task_instance_id("compute_ortho_dist")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            distance_column="ortho_dist",
-            transect_id_column="transect_id",
-            transect_name_column="name",
-            **(params.get("compute_ortho_dist") or {}),
-        )
-        .mapvalues(
-            argnames=["patrol_events", "transects"], argvalues=complete_est_patrol_trans
-        )
-    )
-
-    exclude_neg_ortho_dist = (
-        task(filter_rows)
-        .validate()
-        .set_task_instance_id("exclude_neg_ortho_dist")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column_name="ortho_dist",
-            value=-1,
-            reset_index=True,
-            op="ne",
-            **(params.get("exclude_neg_ortho_dist") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=compute_ortho_dist)
-    )
-
-    merge_transects = (
-        task(merge_transect_lines)
-        .validate()
-        .set_task_instance_id("merge_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("merge_transects") or {}))
-        .mapvalues(argnames=["transects"], argvalues=alias_transect_names)
-    )
-
-    simplify_tolerance = (
-        task(simplify_transects)
-        .validate()
-        .set_task_instance_id("simplify_tolerance")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(tolerance=50, **(params.get("simplify_tolerance") or {}))
-        .mapvalues(argnames=["transects"], argvalues=merge_transects)
-    )
-
-    buffer_transect_segments = (
-        task(buffer_transects)
-        .validate()
-        .set_task_instance_id("buffer_transect_segments")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            cap_style="flat",
-            single_sided=False,
-            resolution=5,
-            distance=500,
-            **(params.get("buffer_transect_segments") or {}),
-        )
-        .mapvalues(argnames=["transects"], argvalues=simplify_tolerance)
-    )
-
-    zip_events_buff_trans = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_events_buff_trans")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[exclude_neg_ortho_dist, buffer_transect_segments],
-            **(params.get("zip_events_buff_trans") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_events_buff_trans = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_events_buff_trans")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_events_buff_trans,
-            expected_length=2,
-            **(params.get("complete_zip_events_buff_trans") or {}),
-        )
-        .call()
-    )
-
-    filter_intersecting_events = (
-        task(flag_events_intersecting_transect)
-        .validate()
-        .set_task_instance_id("filter_intersecting_events")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            intersects_column="intersects_transect",
-            transect_id_column="transect_id",
-            transect_name_column="name",
-            index_column="id",
-            **(params.get("filter_intersecting_events") or {}),
-        )
-        .mapvalues(
-            argnames=["patrol_events", "transects"],
-            argvalues=complete_zip_events_buff_trans,
-        )
-    )
-
-    zip_areas_metadata = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_areas_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[buffer_transect_segments, drop_null_cols],
-            **(params.get("zip_areas_metadata") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_areas_metadata = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_areas_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_areas_metadata,
-            expected_length=2,
-            **(params.get("complete_zip_areas_metadata") or {}),
-        )
-        .call()
-    )
-
-    filter_areas_by_metadata = (
-        task(filter_transects_by_metadata)
-        .validate()
-        .set_task_instance_id("filter_areas_by_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            name_column="name",
-            metadata_id_column="Transect ID",
-            **(params.get("filter_areas_by_metadata") or {}),
-        )
-        .mapvalues(
-            argnames=["transects", "metadata"], argvalues=complete_zip_areas_metadata
-        )
     )
 
     total_transects_per_period = (
@@ -2587,31 +890,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(column_name="name", **(params.get("total_transects_per_period") or {}))
-        .mapvalues(argnames=["df"], argvalues=filter_areas_by_metadata)
-    )
-
-    total_transects_sv_widgets = (
-        task(create_single_value_widget_single_view)
-        .validate()
-        .set_task_instance_id("total_transects_sv_widgets")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Number of Transects Surveyed",
-            decimal_places=0,
-            **(params.get("total_transects_sv_widgets") or {}),
-        )
-        .map(argnames=["view", "data"], argvalues=total_transects_per_period)
+        .mapvalues(argnames=["df"], argvalues=transect_areas)
     )
 
     total_transects_grouped_widget = (
-        task(merge_widget_views)
+        task(single_value_widget)
         .validate()
         .set_task_instance_id("total_transects_grouped_widget")
         .handle_errors()
@@ -2624,16 +907,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            widgets=total_transects_sv_widgets,
+            values=total_transects_per_period,
+            title="Transects Surveyed",
+            decimal_places=0,
             **(params.get("total_transects_grouped_widget") or {}),
         )
         .call()
     )
 
-    reproject_transects = (
-        task(reproject_gdf)
+    missed_transects = (
+        task(build_missed_transects)
         .validate()
-        .set_task_instance_id("reproject_transects")
+        .set_task_instance_id("missed_transects")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2643,50 +928,33 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(target_crs="epsg:4326", **(params.get("reproject_transects") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=filter_areas_by_metadata)
+        .partial(visited=visited_transects, **(params.get("missed_transects") or {}))
+        .call()
     )
 
-    survey_min_date = (
-        task(get_survey_min_date)
+    missed_transects_count = (
+        task(count_rows)
         .validate()
-        .set_task_instance_id("survey_min_date")
+        .set_task_instance_id("missed_transects_count")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
                 any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("survey_min_date") or {}))
-        .mapvalues(argnames=["patrol_events"], argvalues=period_patrol_events)
-    )
-
-    zip_transects_min_date = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_transects_min_date")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            iterables=[reproject_transects, survey_min_date],
-            **(params.get("zip_transects_min_date") or {}),
+            frames=missed_transects, **(params.get("missed_transects_count") or {})
         )
         .call()
     )
 
-    complete_zip_transects_min_date = (
-        task(filter_complete_groups)
+    missed_transects_tile = (
+        task(single_value_widget)
         .validate()
-        .set_task_instance_id("complete_zip_transects_min_date")
+        .set_task_instance_id("missed_transects_tile")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2697,70 +965,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_transects_min_date,
-            expected_length=2,
-            **(params.get("complete_zip_transects_min_date") or {}),
-        )
-        .call()
-    )
-
-    add_since_transects = (
-        task(add_constant_column)
-        .validate()
-        .set_task_instance_id("add_since_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(column="survey_date", **(params.get("add_since_transects") or {}))
-        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_transects_min_date)
-    )
-
-    convert_trans_ee = (
-        task(to_ee_feature_collection)
-        .validate()
-        .set_task_instance_id("convert_trans_ee")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(client=gee_client, **(params.get("convert_trans_ee") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=add_since_transects)
-    )
-
-    zip_aoi_min_date = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_aoi_min_date")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[convert_trans_ee, survey_min_date],
-            **(params.get("zip_aoi_min_date") or {}),
+            values=missed_transects_count,
+            title="Not Surveyed",
+            decimal_places=0,
+            **(params.get("missed_transects_tile") or {}),
         )
         .call()
     )
 
-    complete_zip_aoi_min_date = (
-        task(filter_complete_groups)
+    sightings_per_period = (
+        task(sighting_totals)
         .validate()
-        .set_task_instance_id("complete_zip_aoi_min_date")
+        .set_task_instance_id("sightings_per_period")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2771,17 +987,17 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_aoi_min_date,
-            expected_length=2,
-            **(params.get("complete_zip_aoi_min_date") or {}),
+            analysis=analysis_data,
+            metric="sightings",
+            **(params.get("sightings_per_period") or {}),
         )
         .call()
     )
 
-    hls_ndvi_image = (
-        task(build_hls_ndvi_image)
+    sightings_tile = (
+        task(single_value_widget)
         .validate()
-        .set_task_instance_id("hls_ndvi_image")
+        .set_task_instance_id("sightings_tile")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2792,40 +1008,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            client=gee_client,
-            ndvi_window_days=None,
-            max_cloud_cover=30,
-            ndvi_band_name="NDVI_HSL",
-            **(params.get("hls_ndvi_image") or {}),
-        )
-        .mapvalues(argnames=["aoi", "since"], argvalues=complete_zip_aoi_min_date)
-    )
-
-    create_slope_image = (
-        task(build_slope_image)
-        .validate()
-        .set_task_instance_id("create_slope_image")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            client=gee_client,
-            dem_asset="USGS/SRTMGL1_003",
-            **(params.get("create_slope_image") or {}),
+            values=sightings_per_period,
+            title="Sightings",
+            decimal_places=0,
+            **(params.get("sightings_tile") or {}),
         )
         .call()
     )
 
-    woody_cover_image = (
-        task(build_palsar_woody_cover_image)
+    animals_per_period = (
+        task(sighting_totals)
         .validate()
-        .set_task_instance_id("woody_cover_image")
+        .set_task_instance_id("animals_per_period")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2836,39 +1030,17 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            client=gee_client,
-            dry_season_start_month=7,
-            dry_season_end_month=9,
-            woody_cover_band_name="WoodyCover",
-            max_lookback_years=3,
-            **(params.get("woody_cover_image") or {}),
-        )
-        .mapvalues(argnames=["aoi", "since"], argvalues=complete_zip_aoi_min_date)
-    )
-
-    zip_ndvi_transects = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_ndvi_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[add_since_transects, hls_ndvi_image],
-            **(params.get("zip_ndvi_transects") or {}),
+            analysis=analysis_data,
+            metric="animals",
+            **(params.get("animals_per_period") or {}),
         )
         .call()
     )
 
-    complete_zip_ndvi_transects = (
-        task(filter_complete_groups)
+    animals_tile = (
+        task(single_value_widget)
         .validate()
-        .set_task_instance_id("complete_zip_ndvi_transects")
+        .set_task_instance_id("animals_tile")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2879,17 +1051,18 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_ndvi_transects,
-            expected_length=2,
-            **(params.get("complete_zip_ndvi_transects") or {}),
+            values=animals_per_period,
+            title="Animals Counted",
+            decimal_places=0,
+            **(params.get("animals_tile") or {}),
         )
         .call()
     )
 
-    label_ndvi_hsl = (
-        task(label_features_with_image_stat)
+    species_per_period = (
+        task(sighting_totals)
         .validate()
-        .set_task_instance_id("label_ndvi_hsl")
+        .set_task_instance_id("species_per_period")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2900,38 +1073,17 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            out_column="NDVI_HSL",
-            region_reducer=None,
-            scale=30.0,
-            reducer_key="mean",
-            **(params.get("label_ndvi_hsl") or {}),
-        )
-        .mapvalues(argnames=["gdf", "image"], argvalues=complete_zip_ndvi_transects)
-    )
-
-    zip_ndvi_min_date = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_ndvi_min_date")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[label_ndvi_hsl, survey_min_date],
-            **(params.get("zip_ndvi_min_date") or {}),
+            analysis=analysis_data,
+            metric="species",
+            **(params.get("species_per_period") or {}),
         )
         .call()
     )
 
-    complete_zip_ndvi_min_date = (
-        task(filter_complete_groups)
+    species_tile = (
+        task(single_value_widget)
         .validate()
-        .set_task_instance_id("complete_zip_ndvi_min_date")
+        .set_task_instance_id("species_tile")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -2942,1479 +1094,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_ndvi_min_date,
-            expected_length=2,
-            **(params.get("complete_zip_ndvi_min_date") or {}),
-        )
-        .call()
-    )
-
-    add_img_date_hsl_ndvi = (
-        task(add_constant_column)
-        .validate()
-        .set_task_instance_id("add_img_date_hsl_ndvi")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="img_date_hsl_ndvi", **(params.get("add_img_date_hsl_ndvi") or {})
-        )
-        .mapvalues(argnames=["df", "value"], argvalues=complete_zip_ndvi_min_date)
-    )
-
-    label_slope = (
-        task(label_features_with_image_stat)
-        .validate()
-        .set_task_instance_id("label_slope")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            image=create_slope_image,
-            out_column="slope",
-            region_reducer=None,
-            scale=30.0,
-            reducer_key="mean",
-            **(params.get("label_slope") or {}),
-        )
-        .mapvalues(argnames=["gdf"], argvalues=add_img_date_hsl_ndvi)
-    )
-
-    zip_woody_cover_image = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_woody_cover_image")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[label_slope, woody_cover_image],
-            **(params.get("zip_woody_cover_image") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_woody_cover_image = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_woody_cover_image")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_woody_cover_image,
-            expected_length=2,
-            **(params.get("complete_zip_woody_cover_image") or {}),
-        )
-        .call()
-    )
-
-    label_woody_cover = (
-        task(label_features_with_image_stat)
-        .validate()
-        .set_task_instance_id("label_woody_cover")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            out_column="WoodyCover",
-            region_reducer=None,
-            scale=50.0,
-            reducer_key="mean",
-            **(params.get("label_woody_cover") or {}),
-        )
-        .mapvalues(argnames=["gdf", "image"], argvalues=complete_zip_woody_cover_image)
-    )
-
-    filter_transect_columns = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("filter_transect_columns")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=[
-                "name",
-                "img_date_hsl_ndvi",
-                "NDVI_HSL",
-                "slope",
-                "WoodyCover",
-                "geometry",
-            ],
-            raise_on_missing=True,
-            **(params.get("filter_transect_columns") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=label_woody_cover)
-    )
-
-    exclude_geom = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("exclude_geom")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=["name", "img_date_hsl_ndvi", "NDVI_HSL", "slope", "WoodyCover"],
-            raise_on_missing=True,
-            **(params.get("exclude_geom") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=filter_transect_columns)
-    )
-
-    filter_wild_analysis = (
-        task(filter_row_values)
-        .validate()
-        .set_task_instance_id("filter_wild_analysis")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="event_type",
-            values=[
-                "distancecountwildlife_rep",
-                "distance_count_wildlife_sighting",
-                "distance_count",
-            ],
-            **(params.get("filter_wild_analysis") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=filter_intersecting_events)
-    )
-
-    zip_patrol_transects_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_patrol_transects_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[filter_wild_analysis, exclude_geom],
-            **(params.get("zip_patrol_transects_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_patrol_transects_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_patrol_transects_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_patrol_transects_df,
-            expected_length=2,
-            **(params.get("complete_zip_patrol_transects_df") or {}),
-        )
-        .call()
-    )
-
-    merge_filtered_patrols = (
-        task(merge_two_dataframes)
-        .validate()
-        .set_task_instance_id("merge_filtered_patrols")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            left_on="transect_id",
-            right_on="name",
-            how="left",
-            left_index=False,
-            right_index=False,
-            fillna_value=None,
-            on=None,
-            **(params.get("merge_filtered_patrols") or {}),
-        )
-        .mapvalues(
-            argnames=["left", "right"], argvalues=complete_zip_patrol_transects_df
-        )
-    )
-
-    select_patrol_event_cols = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_patrol_event_cols")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=[
-                "transect_id",
-                "level_1",
-                "title",
-                "patrol_id",
-                "patrol_serial_number",
-                "totalcount",
-                "num_juveniles",
-                "event_type",
-                "num_observers",
-                "dist_to_centre",
-                "geometry",
-                "species",
-                "other_species",
-                "time",
-                "serial_number",
-                "radialangle",
-                "survey_id",
-                "off_transect_dist",
-                "orig_geometry",
-                "ortho_dist",
-                "intersects_transect",
-                "img_date_hsl_ndvi",
-                "NDVI_HSL",
-                "slope",
-            ],
-            raise_on_missing=False,
-            **(params.get("select_patrol_event_cols") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=merge_filtered_patrols)
-    )
-
-    combine_patrol_event_names = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_patrol_event_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            second="analysis_data", **(params.get("combine_patrol_event_names") or {})
-        )
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_patrol_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_patrol_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_patrol_event_names, select_patrol_event_cols],
-            **(params.get("zip_filename_patrol_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_filename_patrol_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_filename_patrol_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_patrol_df,
-            expected_length=2,
-            **(params.get("complete_zip_filename_patrol_df") or {}),
-        )
-        .call()
-    )
-
-    persist_patrol_events_csv = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_patrol_events_csv")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=analysis_data_folder,
-            filetype="csv",
-            **(params.get("persist_patrol_events_csv") or {}),
-        )
-        .mapvalues(
-            argnames=["filename", "df"], argvalues=complete_zip_filename_patrol_df
-        )
-    )
-
-    select_gpkg_columns = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_gpkg_columns")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=[
-                "serial_number",
-                "transect_id",
-                "dist_to_centre",
-                "ortho_dist",
-                "intersects_transect",
-                "geometry",
-            ],
-            raise_on_missing=False,
-            **(params.get("select_gpkg_columns") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=select_patrol_event_cols)
-    )
-
-    combine_gpkg_name = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_gpkg_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(second="events", **(params.get("combine_gpkg_name") or {}))
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_gpkg_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_gpkg_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_gpkg_name, select_gpkg_columns],
-            **(params.get("zip_filename_gpkg_df") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_filename_gpkg_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_filename_gpkg_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_gpkg_df,
-            expected_length=2,
-            **(params.get("complete_zip_filename_gpkg_df") or {}),
-        )
-        .call()
-    )
-
-    persist_patrol_events_gpkg = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_patrol_events_gpkg")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=events_folder,
-            filetype="gpkg",
-            **(params.get("persist_patrol_events_gpkg") or {}),
-        )
-        .mapvalues(argnames=["filename", "df"], argvalues=complete_zip_filename_gpkg_df)
-    )
-
-    format_transect_names = (
-        task(format_text_column)
-        .validate()
-        .set_task_instance_id("format_transect_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            column="name", method="lower", **(params.get("format_transect_names") or {})
-        )
-        .mapvalues(argnames=["df"], argvalues=filter_transect_columns)
-    )
-
-    combine_transect_gpkg_name = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_transect_gpkg_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            second="transect_areas", **(params.get("combine_transect_gpkg_name") or {})
-        )
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_transect_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_transect_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_transect_gpkg_name, format_transect_names],
-            **(params.get("zip_filename_transect_df") or {}),
-        )
-        .call()
-    )
-
-    complete_filename_transect_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_filename_transect_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_transect_df,
-            expected_length=2,
-            **(params.get("complete_filename_transect_df") or {}),
-        )
-        .call()
-    )
-
-    persist_transects_gpkg = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_transects_gpkg")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=transect_areas_folder,
-            filetype="gpkg",
-            **(params.get("persist_transects_gpkg") or {}),
-        )
-        .mapvalues(argnames=["filename", "df"], argvalues=complete_filename_transect_df)
-    )
-
-    zip_lines_metadata = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_lines_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[simplify_tolerance, drop_null_cols],
-            **(params.get("zip_lines_metadata") or {}),
-        )
-        .call()
-    )
-
-    complete_zip_lines_metadata = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_zip_lines_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_lines_metadata,
-            expected_length=2,
-            **(params.get("complete_zip_lines_metadata") or {}),
-        )
-        .call()
-    )
-
-    filter_lines_by_metadata = (
-        task(filter_transects_by_metadata)
-        .validate()
-        .set_task_instance_id("filter_lines_by_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            name_column="name",
-            metadata_id_column="Transect ID",
-            **(params.get("filter_lines_by_metadata") or {}),
-        )
-        .mapvalues(
-            argnames=["transects", "metadata"], argvalues=complete_zip_lines_metadata
-        )
-    )
-
-    reproject_transect_lines = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("reproject_transect_lines")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            target_crs="epsg:4326", **(params.get("reproject_transect_lines") or {})
-        )
-        .mapvalues(argnames=["gdf"], argvalues=filter_lines_by_metadata)
-    )
-
-    combine_transect_lines_gpkg_name = (
-        task(join_with_underscore)
-        .validate()
-        .set_task_instance_id("combine_transect_lines_gpkg_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            second="transect_lines",
-            **(params.get("combine_transect_lines_gpkg_name") or {}),
-        )
-        .mapvalues(argnames=["first"], argvalues=combine_survey_period_name)
-    )
-
-    zip_filename_transect_lines_df = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_filename_transect_lines_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combine_transect_lines_gpkg_name, reproject_transect_lines],
-            **(params.get("zip_filename_transect_lines_df") or {}),
-        )
-        .call()
-    )
-
-    complete_fn_transect_lines_df = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_fn_transect_lines_df")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_filename_transect_lines_df,
-            expected_length=2,
-            **(params.get("complete_fn_transect_lines_df") or {}),
-        )
-        .call()
-    )
-
-    persist_transect_lines_gpkg = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_transect_lines_gpkg")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=transect_lines_folder,
-            filetype="gpkg",
-            **(params.get("persist_transect_lines_gpkg") or {}),
-        )
-        .mapvalues(argnames=["filename", "df"], argvalues=complete_fn_transect_lines_df)
-    )
-
-    combined_latest_transects = (
-        task(combine_transects)
-        .validate()
-        .set_task_instance_id("combined_latest_transects")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            transects=fetch_master_transects,
-            crs=32736,
-            **(params.get("combined_latest_transects") or {}),
-        )
-        .call()
-    )
-
-    combined_latest_survey_areas = (
-        task(combine_latest_survey_areas)
-        .validate()
-        .set_task_instance_id("combined_latest_survey_areas")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            areas=format_transect_names,
-            crs=32736,
-            **(params.get("combined_latest_survey_areas") or {}),
-        )
-        .call()
-    )
-
-    combined_metadata = (
-        task(combine_survey_metadata)
-        .validate()
-        .set_task_instance_id("combined_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            metadata=drop_null_cols,
-            exclude_surveys=["pardamat_2024_11"],
-            **(params.get("combined_metadata") or {}),
-        )
-        .call()
-    )
-
-    survey_metadata_processed = (
-        task(build_survey_metadata_processed)
-        .validate()
-        .set_task_instance_id("survey_metadata_processed")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            survey_metadata=combined_metadata,
-            **(params.get("survey_metadata_processed") or {}),
-        )
-        .call()
-    )
-
-    quarterly_survey_log = (
-        task(build_survey_log)
-        .validate()
-        .set_task_instance_id("quarterly_survey_log")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            transects=combined_latest_transects,
-            survey_metadata_processed=survey_metadata_processed,
-            **(params.get("quarterly_survey_log") or {}),
-        )
-        .call()
-    )
-
-    persist_combined_transects_gpkg = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_combined_transects_gpkg")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_latest_transects,
-            root_path=analysis_outputs_folder,
-            filename="combined_latest_transects",
-            filetype="gpkg",
-            **(params.get("persist_combined_transects_gpkg") or {}),
-        )
-        .call()
-    )
-
-    combined_transects_4326 = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("combined_transects_4326")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            gdf=combined_latest_transects,
-            target_crs="epsg:4326",
-            **(params.get("combined_transects_4326") or {}),
-        )
-        .call()
-    )
-
-    persist_combined_geojson = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_combined_geojson")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_transects_4326,
-            root_path=analysis_outputs_folder,
-            filename="combined_latest_transects",
-            filetype="geojson",
-            **(params.get("persist_combined_geojson") or {}),
-        )
-        .call()
-    )
-
-    persist_combined_areas_gpkg = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_combined_areas_gpkg")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_latest_survey_areas,
-            root_path=analysis_outputs_folder,
-            filename="combined_latest_survey_areas",
-            filetype="gpkg",
-            **(params.get("persist_combined_areas_gpkg") or {}),
-        )
-        .call()
-    )
-
-    combined_areas_4326 = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("combined_areas_4326")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            gdf=combined_latest_survey_areas,
-            target_crs="epsg:4326",
-            **(params.get("combined_areas_4326") or {}),
-        )
-        .call()
-    )
-
-    combined_areas_4326_str = (
-        task(stringify_datetime_columns)
-        .validate()
-        .set_task_instance_id("combined_areas_4326_str")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_areas_4326, **(params.get("combined_areas_4326_str") or {})
-        )
-        .call()
-    )
-
-    persist_combined_areas_geojson = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_combined_areas_geojson")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_areas_4326_str,
-            root_path=analysis_outputs_folder,
-            filename="combined_latest_survey_areas",
-            filetype="geojson",
-            **(params.get("persist_combined_areas_geojson") or {}),
-        )
-        .call()
-    )
-
-    persist_combined_metadata = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_combined_metadata")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=combined_metadata,
-            root_path=analysis_outputs_folder,
-            filename="Combined_Metadata",
-            filetype="csv",
-            **(params.get("persist_combined_metadata") or {}),
-        )
-        .call()
-    )
-
-    persist_survey_processed = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_survey_processed")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=survey_metadata_processed,
-            root_path=analysis_outputs_folder,
-            filename="Survey_Metadata_Processed",
-            filetype="csv",
-            **(params.get("persist_survey_processed") or {}),
-        )
-        .call()
-    )
-
-    persist_quarterly_survey_log = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_quarterly_survey_log")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=quarterly_survey_log,
-            root_path=analysis_outputs_folder,
-            filename="Quarterly_Survey_Log",
-            filetype="csv",
-            **(params.get("persist_quarterly_survey_log") or {}),
-        )
-        .call()
-    )
-
-    zip_publish_paths = (
-        task(groupbykey)
-        .validate()
-        .set_task_instance_id("zip_publish_paths")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[persist_transects_gpkg, persist_patrol_events_gpkg],
-            **(params.get("zip_publish_paths") or {}),
-        )
-        .call()
-    )
-
-    gather_transects_paths = (
-        task(collect_transects_paths)
-        .validate()
-        .set_task_instance_id("gather_transects_paths")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            zipped=zip_publish_paths, **(params.get("gather_transects_paths") or {})
-        )
-        .call()
-    )
-
-    select_analysis_table_cols = (
-        task(select_columns)
-        .validate()
-        .set_task_instance_id("select_analysis_table_cols")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=[
-                "transect_id",
-                "level_1",
-                "title",
-                "patrol_id",
-                "patrol_serial_number",
-                "totalcount",
-                "num_juveniles",
-                "event_type",
-                "num_observers",
-                "dist_to_centre",
-                "species",
-                "other_species",
-                "time",
-                "serial_number",
-                "radialangle",
-                "survey_id",
-                "off_transect_dist",
-                "ortho_dist",
-                "intersects_transect",
-                "img_date_hsl_ndvi",
-                "NDVI_HSL",
-                "slope",
-            ],
-            raise_on_missing=False,
-            **(params.get("select_analysis_table_cols") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=select_patrol_event_cols)
-    )
-
-    field_effort_display = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("field_effort_display")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            drop_columns=[],
-            retain_columns=[],
-            raise_if_not_found=False,
-            duplicate_strategy="suffix",
-            rename_columns={
-                "survey_date": "Survey Date",
-                "id": "Subject ID",
-                "name": "Team Member",
-                "team_size": "Team Size",
-                "distance": "Distance (km)",
-                "duration": "Duration (h)",
-                "man_hours": "Man Hours",
-            },
-            **(params.get("field_effort_display") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=field_effort)
-    )
-
-    field_effort_table = (
-        task(draw_table)
-        .validate()
-        .set_task_instance_id("field_effort_table")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=None,
-            table_config={
-                "enable_sorting": True,
-                "enable_filtering": True,
-                "enable_download": True,
-            },
-            **(params.get("field_effort_table") or {}),
-        )
-        .mapvalues(argnames=["dataframe"], argvalues=field_effort_display)
-    )
-
-    field_effort_table_html = (
-        task(persist_text)
-        .validate()
-        .set_task_instance_id("field_effort_table_html")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename_suffix="field_effort_table",
-            **(params.get("field_effort_table_html") or {}),
-        )
-        .mapvalues(argnames=["text"], argvalues=field_effort_table)
-    )
-
-    field_effort_table_single_views = (
-        task(create_table_widget_single_view)
-        .validate()
-        .set_task_instance_id("field_effort_table_single_views")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Field Effort",
-            **(params.get("field_effort_table_single_views") or {}),
-        )
-        .map(argnames=["view", "data"], argvalues=field_effort_table_html)
-    )
-
-    field_effort_table_widget = (
-        task(merge_widget_views)
-        .validate()
-        .set_task_instance_id("field_effort_table_widget")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            widgets=field_effort_table_single_views,
-            **(params.get("field_effort_table_widget") or {}),
-        )
-        .call()
-    )
-
-    analysis_data_table = (
-        task(draw_table)
-        .validate()
-        .set_task_instance_id("analysis_data_table")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=None,
-            table_config={
-                "enable_sorting": True,
-                "enable_filtering": True,
-                "enable_download": True,
-            },
-            **(params.get("analysis_data_table") or {}),
-        )
-        .mapvalues(argnames=["dataframe"], argvalues=select_analysis_table_cols)
-    )
-
-    analysis_data_table_html = (
-        task(persist_text)
-        .validate()
-        .set_task_instance_id("analysis_data_table_html")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename_suffix="analysis_data_table",
-            **(params.get("analysis_data_table_html") or {}),
-        )
-        .mapvalues(argnames=["text"], argvalues=analysis_data_table)
-    )
-
-    analysis_data_table_single_views = (
-        task(create_table_widget_single_view)
-        .validate()
-        .set_task_instance_id("analysis_data_table_single_views")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Analysis Data",
-            **(params.get("analysis_data_table_single_views") or {}),
-        )
-        .map(argnames=["view", "data"], argvalues=analysis_data_table_html)
-    )
-
-    analysis_data_table_widget = (
-        task(merge_widget_views)
-        .validate()
-        .set_task_instance_id("analysis_data_table_widget")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            widgets=analysis_data_table_single_views,
-            **(params.get("analysis_data_table_widget") or {}),
-        )
-        .call()
-    )
-
-    metadata_display = (
-        task(map_columns)
-        .validate()
-        .set_task_instance_id("metadata_display")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            drop_columns=[],
-            retain_columns=[],
-            raise_if_not_found=False,
-            duplicate_strategy="suffix",
-            rename_columns={
-                "serial_number": "Serial Number",
-                "event_type": "Event Type",
-                "time": "Time",
-                "latitude": "Latitude",
-                "longitude": "Longitude",
-                "reported_by": "Reported By",
-            },
-            **(params.get("metadata_display") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=drop_null_cols)
-    )
-
-    metadata_table = (
-        task(draw_table)
-        .validate()
-        .set_task_instance_id("metadata_table")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            columns=None,
-            table_config={
-                "enable_sorting": True,
-                "enable_filtering": True,
-                "enable_download": True,
-            },
-            **(params.get("metadata_table") or {}),
-        )
-        .mapvalues(argnames=["dataframe"], argvalues=metadata_display)
-    )
-
-    metadata_table_html = (
-        task(persist_text)
-        .validate()
-        .set_task_instance_id("metadata_table_html")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename_suffix="metadata_table",
-            **(params.get("metadata_table_html") or {}),
-        )
-        .mapvalues(argnames=["text"], argvalues=metadata_table)
-    )
-
-    metadata_table_single_views = (
-        task(create_table_widget_single_view)
-        .validate()
-        .set_task_instance_id("metadata_table_single_views")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                never,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            title="Survey Metadata", **(params.get("metadata_table_single_views") or {})
-        )
-        .map(argnames=["view", "data"], argvalues=metadata_table_html)
-    )
-
-    metadata_grouped_table_widget = (
-        task(merge_widget_views)
-        .validate()
-        .set_task_instance_id("metadata_grouped_table_widget")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            widgets=metadata_table_single_views,
-            **(params.get("metadata_grouped_table_widget") or {}),
+            values=species_per_period,
+            title="Species Seen",
+            decimal_places=0,
+            **(params.get("species_tile") or {}),
         )
         .call()
     )
@@ -4434,23 +1117,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(**(params.get("base_map_defs") or {}))
         .call()
-    )
-
-    reproject_events_map = (
-        task(reproject_gdf)
-        .validate()
-        .set_task_instance_id("reproject_events_map")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(target_crs="epsg:4326", **(params.get("reproject_events_map") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=select_patrol_event_cols)
     )
 
     transect_areas_layer = (
@@ -4484,7 +1150,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             },
             **(params.get("transect_areas_layer") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=format_transect_names)
+        .mapvalues(argnames=["geodataframe"], argvalues=transect_areas)
     )
 
     transect_lines_layer = (
@@ -4514,11 +1180,83 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             },
             legend={
                 "title": "",
-                "values": [{"label": "Transect Lines", "color": "#000000"}],
+                "values": [{"label": "Surveyed transects", "color": "#000000"}],
             },
             **(params.get("transect_lines_layer") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=reproject_transect_lines)
+        .mapvalues(argnames=["geodataframe"], argvalues=transect_lines)
+    )
+
+    missed_lines = (
+        task(missed_transect_lines)
+        .validate()
+        .set_task_instance_id("missed_lines")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("missed_lines") or {}))
+        .mapvalues(argnames=["visited"], argvalues=visited_transects)
+    )
+
+    missed_lines_layer = (
+        task(create_geojson_layer)
+        .validate()
+        .set_task_instance_id("missed_lines_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+                all_geometry_are_none,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            tooltip_columns=["name"],
+            data_url=None,
+            layer_style={
+                "filled": False,
+                "stroked": True,
+                "get_line_color": [200, 30, 30],
+                "get_line_width": 2.5,
+                "opacity": 0.85,
+            },
+            legend={
+                "title": "",
+                "values": [{"label": "Transects not surveyed", "color": "#c81e1e"}],
+            },
+            **(params.get("missed_lines_layer") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=missed_lines)
+    )
+
+    styled_sightings = (
+        task(style_sightings_for_map)
+        .validate()
+        .set_task_instance_id("styled_sightings")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            analysis=analysis_data,
+            min_radius=3,
+            max_radius=14,
+            **(params.get("styled_sightings") or {}),
+        )
+        .call()
     )
 
     events_point_layer = (
@@ -4536,20 +1274,25 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            tooltip_columns=None,
+            tooltip_columns=["species", "animals", "transect_id"],
             data_url=None,
             layer_style={
-                "get_fill_color": [210, 105, 30],
-                "get_line_color": [210, 105, 30],
-                "get_line_width": 0.25,
-                "get_radius": 3.25,
-                "opacity": 0.75,
+                "get_fill_color": "species_colour",
+                "get_line_color": [40, 40, 40],
+                "get_line_width": 0.5,
+                "get_radius": "radius",
+                "radius_units": "pixels",
+                "opacity": 0.85,
                 "stroked": True,
             },
-            legend={"title": "", "values": [{"label": "Events", "color": "#d2691e"}]},
+            legend={
+                "title": "Sightings (larger = more animals)",
+                "label_column": "species_group",
+                "color_column": "species_colour",
+            },
             **(params.get("events_point_layer") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=reproject_events_map)
+        .mapvalues(argnames=["geodataframe"], argvalues=styled_sightings)
     )
 
     combined_survey_map_layers = (
@@ -4565,7 +1308,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            iterables=[transect_areas_layer, transect_lines_layer, events_point_layer],
+            iterables=[
+                transect_areas_layer,
+                transect_lines_layer,
+                missed_lines_layer,
+                events_point_layer,
+            ],
             **(params.get("combined_survey_map_layers") or {}),
         )
         .call()
@@ -4585,7 +1333,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(expansion_factor=1.35, **(params.get("zoom_to_envelope") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=format_transect_names)
+        .mapvalues(argnames=["gdf"], argvalues=transect_areas)
     )
 
     gdf_image_extent = (
@@ -4607,29 +1355,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
     )
 
-    zip_layers_with_viewstate = (
-        task(groupbykey)
+    layers_with_view_state = (
+        task(pair_keyed)
         .validate()
-        .set_task_instance_id("zip_layers_with_viewstate")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[combined_survey_map_layers, gdf_image_extent],
-            **(params.get("zip_layers_with_viewstate") or {}),
-        )
-        .call()
-    )
-
-    complete_layers_viewstate = (
-        task(filter_complete_groups)
-        .validate()
-        .set_task_instance_id("complete_layers_viewstate")
+        .set_task_instance_id("layers_with_view_state")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -4640,9 +1369,9 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            zipped=zip_layers_with_viewstate,
-            expected_length=2,
-            **(params.get("complete_layers_viewstate") or {}),
+            first=combined_survey_map_layers,
+            second=gdf_image_extent,
+            **(params.get("layers_with_view_state") or {}),
         )
         .call()
     )
@@ -4670,7 +1399,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             **(params.get("survey_overview_map") or {}),
         )
         .mapvalues(
-            argnames=["geo_layers", "view_state"], argvalues=complete_layers_viewstate
+            argnames=["geo_layers", "view_state"], argvalues=layers_with_view_state
         )
     )
 
@@ -4734,6 +1463,503 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    species_chart = (
+        task(draw_species_chart)
+        .validate()
+        .set_task_instance_id("species_chart")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(analysis=analysis_data, **(params.get("species_chart") or {}))
+        .call()
+    )
+
+    species_chart_widget = (
+        task(chart_widget)
+        .validate()
+        .set_task_instance_id("species_chart_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            charts=species_chart,
+            title="Animals Counted by Species",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="species_chart",
+            **(params.get("species_chart_widget") or {}),
+        )
+        .call()
+    )
+
+    distance_histogram = (
+        task(draw_distance_histogram)
+        .validate()
+        .set_task_instance_id("distance_histogram")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            analysis=analysis_data,
+            bin_width=25,
+            max_distance=500,
+            **(params.get("distance_histogram") or {}),
+        )
+        .call()
+    )
+
+    distance_histogram_widget = (
+        task(chart_widget)
+        .validate()
+        .set_task_instance_id("distance_histogram_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            charts=distance_histogram,
+            title="Detection Distances",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="distance_histogram",
+            **(params.get("distance_histogram_widget") or {}),
+        )
+        .call()
+    )
+
+    effort_by_day = (
+        task(draw_effort_by_day)
+        .validate()
+        .set_task_instance_id("effort_by_day")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(effort=field_effort, **(params.get("effort_by_day") or {}))
+        .call()
+    )
+
+    effort_by_day_widget = (
+        task(chart_widget)
+        .validate()
+        .set_task_instance_id("effort_by_day_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            charts=effort_by_day,
+            title="Effort by Day",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="effort_by_day",
+            **(params.get("effort_by_day_widget") or {}),
+        )
+        .call()
+    )
+
+    site_trends = (
+        task(draw_site_trends)
+        .validate()
+        .set_task_instance_id("site_trends")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            analysis=analysis_data,
+            transect_lines=transect_lines,
+            **(params.get("site_trends") or {}),
+        )
+        .call()
+    )
+
+    site_trends_widget = (
+        task(chart_widget)
+        .validate()
+        .set_task_instance_id("site_trends_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            charts=site_trends,
+            title="Trends Across Survey Periods (this site)",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="site_trends",
+            **(params.get("site_trends_widget") or {}),
+        )
+        .call()
+    )
+
+    data_quality = (
+        task(build_data_quality)
+        .validate()
+        .set_task_instance_id("data_quality")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            periods=survey_periods,
+            events=survey_events,
+            located_events=located_events,
+            effort=field_effort,
+            max_patrol_hours=12,
+            **(params.get("data_quality") or {}),
+        )
+        .call()
+    )
+
+    data_quality_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("data_quality_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=data_quality,
+            title="Data Quality Checks",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="data_quality_table",
+            **(params.get("data_quality_widget") or {}),
+        )
+        .call()
+    )
+
+    missed_transects_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("missed_transects_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=missed_transects,
+            title="Transects Not Surveyed",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="missed_transects_table",
+            **(params.get("missed_transects_widget") or {}),
+        )
+        .call()
+    )
+
+    encounter_rates = (
+        task(build_encounter_rates)
+        .validate()
+        .set_task_instance_id("encounter_rates")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            analysis=analysis_data,
+            transect_lines=transect_lines,
+            **(params.get("encounter_rates") or {}),
+        )
+        .call()
+    )
+
+    encounter_rates_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("encounter_rates_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=encounter_rates,
+            title="Encounter Rate per Transect",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="encounter_rates_table",
+            **(params.get("encounter_rates_widget") or {}),
+        )
+        .call()
+    )
+
+    transect_covariates = (
+        task(build_transect_covariates)
+        .validate()
+        .set_task_instance_id("transect_covariates")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            transect_areas=transect_areas, **(params.get("transect_covariates") or {})
+        )
+        .call()
+    )
+
+    transect_covariates_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("transect_covariates_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=transect_covariates,
+            title="Transect Covariates",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="transect_covariates_table",
+            **(params.get("transect_covariates_widget") or {}),
+        )
+        .call()
+    )
+
+    field_effort_display = (
+        task(map_columns)
+        .validate()
+        .set_task_instance_id("field_effort_display")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            drop_columns=[],
+            retain_columns=[],
+            raise_if_not_found=False,
+            duplicate_strategy="suffix",
+            rename_columns={
+                "survey_date": "Survey Date",
+                "id": "Subject ID",
+                "name": "Team Member",
+                "team_size": "Team Size",
+                "distance": "Distance (km)",
+                "duration": "Duration (h)",
+                "man_hours": "Man Hours",
+            },
+            **(params.get("field_effort_display") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=field_effort)
+    )
+
+    field_effort_table_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("field_effort_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=field_effort_display,
+            title="Field Effort",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="field_effort_table",
+            **(params.get("field_effort_table_widget") or {}),
+        )
+        .call()
+    )
+
+    metadata_display = (
+        task(map_columns)
+        .validate()
+        .set_task_instance_id("metadata_display")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            drop_columns=[],
+            retain_columns=[],
+            raise_if_not_found=False,
+            duplicate_strategy="suffix",
+            rename_columns={
+                "serial_number": "Serial Number",
+                "event_type": "Event Type",
+                "time": "Time",
+                "latitude": "Latitude",
+                "longitude": "Longitude",
+                "reported_by": "Reported By",
+            },
+            **(params.get("metadata_display") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=survey_metadata)
+    )
+
+    metadata_grouped_table_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("metadata_grouped_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=metadata_display,
+            title="Survey Metadata",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="metadata_table",
+            **(params.get("metadata_grouped_table_widget") or {}),
+        )
+        .call()
+    )
+
+    analysis_table_columns = (
+        task(select_columns)
+        .validate()
+        .set_task_instance_id("analysis_table_columns")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=[
+                "transect_id",
+                "patrol_serial_number",
+                "serial_number",
+                "time",
+                "species",
+                "other_species",
+                "totalcount",
+                "num_juveniles",
+                "num_observers",
+                "dist_to_centre",
+                "radialangle",
+                "off_transect_dist",
+                "ortho_dist",
+                "intersects_transect",
+                "img_date_hsl_ndvi",
+                "NDVI_HSL",
+                "slope",
+                "survey_id",
+            ],
+            raise_on_missing=False,
+            **(params.get("analysis_table_columns") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=analysis_data)
+    )
+
+    analysis_data_table_widget = (
+        task(table_widget)
+        .validate()
+        .set_task_instance_id("analysis_data_table_widget")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            frames=analysis_table_columns,
+            title="Analysis Data",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="analysis_data_table",
+            **(params.get("analysis_data_table_widget") or {}),
+        )
+        .call()
+    )
+
     overall_dashboard = (
         task(gather_dashboard)
         .validate()
@@ -4753,9 +1979,22 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 total_distance_grouped_widget,
                 total_effort_grouped_widget,
                 total_transects_grouped_widget,
+                missed_transects_tile,
+                sightings_tile,
+                animals_tile,
+                species_tile,
                 survey_overview_map_widget,
+                species_chart_widget,
+                distance_histogram_widget,
+                effort_by_day_widget,
+                site_trends_widget,
+                data_quality_widget,
+                missed_transects_widget,
+                encounter_rates_widget,
+                transect_covariates_widget,
                 field_effort_table_widget,
                 metadata_grouped_table_widget,
+                analysis_data_table_widget,
             ],
             time_range=time_range,
             groupers=groupers,
